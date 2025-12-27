@@ -1,0 +1,28 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: always
+    environment:
+      # Dominio público (a través de Cloudflare Tunnel)
+      - DOMAIN=https://vaultwarden.herwingx.dev
+      # ⚠️ IMPORTANTE: Cambiar a 'false' después de crear tu cuenta
+      - SIGNUPS_ALLOWED=true
+      # Puerto interno del servidor
+      - ROCKET_PORT=80
+      # Habilitar WebSocket para notificaciones en tiempo real
+      - WEBSOCKET_ENABLED=true
+    volumes:
+      # Persistencia de datos (bóveda, configuración, íconos, etc.)
+      - ./data:/data
+    # No exponemos puertos al host, solo accesible via tunnel
+    expose:
+      - "80"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - vaultwarden

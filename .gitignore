@@ -1,0 +1,24 @@
+# =============================================================================
+# VAULTWARDEN PROXMOX - GITIGNORE
+# =============================================================================
+
+# --- SECRETOS ---
+# .env NO va a Git (tiene datos en plano)
+.env
+# .env.age SÍ va a Git (está cifrado)
+!.env.age
+!.env.example
+
+# --- DATOS DE VAULTWARDEN ---
+data/
+
+# --- LOGS ---
+*.log
+
+# --- BACKUPS TEMPORALES ---
+*.json
+*.json.age
+
+# --- SISTEMA ---
+.DS_Store
+Thumbs.db
