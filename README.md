@@ -1,10 +1,9 @@
-# 🔐 Vaultwarden Proxmox
+# 🔐 Vaultwarden Self-Hosted
 
-> **Gestor de contraseñas auto-hospedado** — Alternativa ligera y compatible con Bitwarden, desplegado en Proxmox con backups cifrados automáticos.
+> **Gestor de contraseñas auto-hospedado** — Alternativa ligera y compatible con Bitwarden, con backups cifrados automáticos a la nube.
 
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Vaultwarden](https://img.shields.io/badge/Vaultwarden-175DDC?style=flat-square&logo=bitwarden&logoColor=white)](https://github.com/dani-garcia/vaultwarden)
-[![Cloudflare](https://img.shields.io/badge/Cloudflare_Tunnel-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
 [![AGE](https://img.shields.io/badge/AGE_Encryption-2D3748?style=flat-square&logo=gnuprivacyguard&logoColor=white)](https://age-encryption.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -12,15 +11,15 @@
 
 ## ✨ Características
 
-| Característica                | Descripción                                      |
-| :---------------------------- | :----------------------------------------------- |
-| 🐳 **Docker Compose**          | Despliegue simple con un solo comando            |
-| 🔒 **Cloudflare Tunnel**       | Exposición segura sin abrir puertos en el router |
-| 🔐 **Cifrado AGE**             | Secretos y backups protegidos con passphrase     |
-| ☁️ **Backup a Google Drive**   | Respaldos automáticos con rclone                 |
-| 📱 **Notificaciones Telegram** | Alertas de estado en cada backup                 |
-| ⏰ **Cron Automatizado**       | Backups diarios sin intervención                 |
-| 🧹 **Retención Inteligente**   | Limpieza automática de backups antiguos          |
+| Característica                | Descripción                                            |
+| :---------------------------- | :----------------------------------------------------- |
+| 🐳 **Docker Compose**          | Despliegue simple con un solo comando                  |
+| 🌐 **Acceso Flexible**         | Cloudflare Tunnel, Tailscale, Reverse Proxy o IP local |
+| 🔐 **Cifrado AGE**             | Secretos y backups protegidos con passphrase           |
+| ☁️ **Backup a la Nube**        | Respaldos automáticos con rclone (Drive, S3, etc.)     |
+| 📱 **Notificaciones Telegram** | Alertas de estado en cada backup                       |
+| ⏰ **Cron Automatizado**       | Backups diarios sin intervención                       |
+| 🧹 **Retención Inteligente**   | Limpieza automática de backups antiguos                |
 
 ---
 
@@ -28,18 +27,9 @@
 
 ### Requisitos Previos
 
-- **Proxmox LXC** con Docker instalado
-- **Cloudflare** con dominio configurado
-- **[dotfiles](https://github.com/herwingx/dotfiles)** instalados (incluye `age`, `rclone`, `bw`)
-
-### 0. Instalar dotfiles (si no los tienes)
-
-```bash
-git clone https://github.com/herwingx/dotfiles.git ~/dotfiles
-cd ~/dotfiles && ./install.sh
-```
-
-> 📘 Los dotfiles instalan y configuran: `age`, `rclone`, `bw` (Bitwarden CLI) y `curl`.
+- **Servidor Linux** con Docker instalado (Ubuntu, Debian, Proxmox LXC, Raspberry Pi, etc.)
+- **Dominio** (opcional, para acceso remoto con HTTPS)
+- Herramientas: `age`, `rclone`, `bw` (Bitwarden CLI), `curl`
 
 ### 1. Clonar el repositorio
 
@@ -51,40 +41,130 @@ cd /opt/vaultwarden
 ### 2. Instalar dependencias
 
 ```bash
-./scripts/install.sh
+# Instalar herramientas necesarias
+apt update && apt install -y age rclone curl
+
+# Instalar Bitwarden CLI
+npm install -g @bitwarden/cli
 ```
 
-> 📘 Cuando pregunte si configurar el cron, responde **"n"** (lo haremos después de crear la cuenta).
+O si tienes los [dotfiles](https://github.com/herwingx/dotfiles):
 
-### 3. Levantar Vaultwarden
+```bash
+cd ~/dotfiles && ./install.sh
+```
+
+### 3. Configurar variables de entorno
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+### 4. Levantar Vaultwarden
 
 ```bash
 ./scripts/start.sh
 ```
 
-### 4. Configurar Cloudflare Tunnel
+### 5. Configurar acceso (elige una opción)
 
-En el panel de **Cloudflare Zero Trust** → **Tunnels** → tu tunnel → **Public Hostname**:
+<details>
+<summary><strong>🔷 Opción A: Cloudflare Tunnel (Recomendado para dominio propio)</strong></summary>
+
+Sin abrir puertos en tu router. Requiere cuenta en Cloudflare.
+
+1. En **Cloudflare Zero Trust** → **Tunnels** → crear tunnel
+2. Añadir **Public Hostname**:
 
 | Campo     | Valor                   |
 | :-------- | :---------------------- |
-| Subdomain | `vaultwarden`           |
-| Domain    | `herwingx.dev`          |
+| Subdomain | `vault`                 |
+| Domain    | `tudominio.com`         |
 | Service   | `http://vaultwarden:80` |
 
-> ⚠️ **Importante**: Usa `http://vaultwarden:80` (nombre del contenedor), no `localhost`.
+3. Copiar el token del tunnel a `docker-compose.yml`:
 
-### 5. Crear tu cuenta
+```yaml
+cloudflared:
+  environment:
+    - TUNNEL_TOKEN=tu_token_aqui
+```
 
-Accede a **https://vaultwarden.herwingx.dev** y crea tu cuenta.
+</details>
 
-### 6. Obtener API Keys
+<details>
+<summary><strong>🟣 Opción B: Tailscale (Red privada entre dispositivos)</strong></summary>
+
+Acceso seguro solo desde tus dispositivos con Tailscale instalado.
+
+1. Instalar Tailscale en el servidor:
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up
+```
+
+2. Acceder desde cualquier dispositivo con Tailscale:
+```
+http://100.x.x.x:8080
+```
+
+> 📘 Tu IP de Tailscale la encuentras con `tailscale ip -4`
+
+</details>
+
+<details>
+<summary><strong>🟢 Opción C: Reverse Proxy (Nginx, Traefik, Caddy)</strong></summary>
+
+Si ya tienes un reverse proxy configurado.
+
+**Ejemplo con Nginx:**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name vault.tudominio.com;
+
+    ssl_certificate /etc/letsencrypt/live/vault.tudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vault.tudominio.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>🟡 Opción D: Acceso Local (Solo red interna)</strong></summary>
+
+Acceso solo desde tu red local, sin exposición a internet.
+
+```bash
+# Acceder directamente por IP
+http://192.168.1.100:8080
+```
+
+> ⚠️ **Nota**: Sin HTTPS, las extensiones de Bitwarden pueden no funcionar. Considera usar Tailscale o un certificado local.
+
+</details>
+
+### 6. Crear tu cuenta
+
+Accede a tu instancia (según la opción elegida) y crea tu cuenta.
+
+### 7. Obtener API Keys
 
 1. Ve a **⚙️ Ajustes** → **Seguridad** → **Keys**
 2. Click en **Ver API Key**
 3. Copia el `client_id` y `client_secret`
 
-### 7. Actualizar secretos con tus API Keys
+### 8. Actualizar secretos
 
 ```bash
 ./scripts/manage_secrets.sh edit
@@ -93,12 +173,13 @@ Accede a **https://vaultwarden.herwingx.dev** y crea tu cuenta.
 Completa los valores:
 
 ```env
+BW_HOST=https://vault.tudominio.com  # o tu IP/URL
 BW_CLIENTID=user.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 BW_CLIENTSECRET=el_secret_que_copiaste
 BW_PASSWORD=tu_contraseña_maestra
 ```
 
-### 8. Cerrar registros
+### 9. Cerrar registros
 
 Edita `docker-compose.yml`:
 
@@ -112,9 +193,7 @@ Reinicia:
 docker compose down && ./scripts/start.sh
 ```
 
-### 9. Configurar backups automáticos
-
-Ahora que tienes las API Keys configuradas:
+### 10. Configurar backups automáticos
 
 ```bash
 ./scripts/install.sh --cron
@@ -144,7 +223,7 @@ Variables principales:
 
 ```env
 # API Keys (Vaultwarden -> Ajustes -> Seguridad -> Keys)
-BW_HOST=https://vaultwarden.herwingx.dev
+BW_HOST=https://vault.tudominio.com
 BW_CLIENTID=user.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 BW_CLIENTSECRET=tu_client_secret
 BW_PASSWORD=tu_contraseña_maestra
@@ -153,7 +232,7 @@ BW_PASSWORD=tu_contraseña_maestra
 TELEGRAM_TOKEN=123456:ABC-token
 TELEGRAM_CHAT_ID=123456789
 
-# Rclone
+# Rclone (gdrive, s3, dropbox, etc.)
 RCLONE_REMOTE=gdrive:Backups/Vaultwarden
 ```
 
@@ -177,16 +256,18 @@ Te pedirá una **passphrase** — recuérdala, la necesitarás para los backups.
 
 ### Ejecución automática (cron)
 
-Edita el crontab:
+```bash
+./scripts/install.sh --cron
+```
+
+O edita manualmente el crontab:
 
 ```bash
 crontab -e
 ```
 
-Añade esta línea para backup diario a las 3:00 AM:
-
 ```bash
-0 3 * * * AGE_PASSPHRASE="tu_passphrase_aqui" /opt/vaultwarden/scripts/backup.sh >> /var/log/vw_backup.log 2>&1
+0 3 * * * AGE_PASSPHRASE="tu_passphrase" /opt/vaultwarden/scripts/backup.sh >> /var/log/vw_backup.log 2>&1
 ```
 
 > 📘 **Nota**: La variable `AGE_PASSPHRASE` permite la ejecución sin interacción.
@@ -195,7 +276,7 @@ Añade esta línea para backup diario a las 3:00 AM:
 
 ## 🔄 Restaurar Backup
 
-### 1. Descargar el backup desde Google Drive
+### 1. Descargar el backup desde la nube
 
 ```bash
 # Listar backups disponibles
@@ -208,7 +289,6 @@ rclone copy gdrive:Backups/Vaultwarden/vw_backup_20260102_030002.json.age /tmp/
 ### 2. Descifrar el archivo
 
 ```bash
-# Descifrar con tu passphrase
 age -d -o /tmp/vw_backup.json /tmp/vw_backup_20260102_030002.json.age
 ```
 
@@ -218,7 +298,7 @@ Te pedirá la passphrase que usaste para cifrar.
 
 **Opción A: Desde la Web**
 
-1. Accede a **https://vaultwarden.herwingx.dev**
+1. Accede a tu instancia de Vaultwarden
 2. Ve a **⚙️ Ajustes** → **Importar datos**
 3. Selecciona formato: **Bitwarden (json)**
 4. Sube el archivo `/tmp/vw_backup.json`
@@ -227,13 +307,8 @@ Te pedirá la passphrase que usaste para cifrar.
 **Opción B: Desde CLI**
 
 ```bash
-# Configurar servidor
-bw config server https://vaultwarden.herwingx.dev
-
-# Login
+bw config server https://vault.tudominio.com
 bw login
-
-# Importar (después de desbloquear)
 bw unlock
 export BW_SESSION="tu_session_key"
 bw import bitwardenjson /tmp/vw_backup.json
@@ -242,11 +317,10 @@ bw import bitwardenjson /tmp/vw_backup.json
 ### 4. Limpiar archivo descifrado
 
 ```bash
-# Eliminar el JSON en texto plano
 rm -f /tmp/vw_backup.json /tmp/vw_backup_*.json.age
 ```
 
-> ⚠️ **Importante**: Nunca dejes archivos JSON sin cifrar. Contienen todas tus contraseñas en texto plano.
+> ⚠️ **Importante**: Nunca dejes archivos JSON sin cifrar. Contienen todas tus contraseñas.
 
 ---
 
@@ -257,13 +331,16 @@ rm -f /tmp/vw_backup.json /tmp/vw_backup_*.json.age
 │                         INTERNET                                │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
-                    ┌───────▼───────┐
-                    │  Cloudflare   │
-                    │    Tunnel     │
-                    └───────┬───────┘
+              ┌─────────────┼─────────────┐
+              │             │             │
+      ┌───────▼───────┐ ┌───▼───┐ ┌───────▼───────┐
+      │  Cloudflare   │ │Tailsc.│ │ Reverse Proxy │
+      │    Tunnel     │ │  VPN  │ │ (Nginx/Caddy) │
+      └───────┬───────┘ └───┬───┘ └───────┬───────┘
+              └─────────────┼─────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────────┐
-│                      PROXMOX LXC                                │
+│                    TU SERVIDOR LINUX                            │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                    Docker                                │   │
 │  │  ┌─────────────────────────────────────────────────┐    │   │
@@ -276,7 +353,7 @@ rm -f /tmp/vw_backup.json /tmp/vw_backup_*.json.age
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  backup.sh   │──│  AGE Cipher  │──│  rclone → G.Drive    │  │
+│  │  backup.sh   │──│  AGE Cipher  │──│  rclone → Cloud      │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -286,8 +363,8 @@ rm -f /tmp/vw_backup.json /tmp/vw_backup_*.json.age
 ## 📁 Estructura del Proyecto
 
 ```
-vaultwarden-proxmox/
-├── docker-compose.yml       # Configuración de Vaultwarden + Cloudflared
+vaultwarden/
+├── docker-compose.yml       # Configuración de Vaultwarden
 ├── .env.example             # Plantilla de variables
 ├── .env.age                 # 🔒 Secretos cifrados (va a Git)
 ├── data/                    # 🔒 Datos de Vaultwarden (NO va a Git)
@@ -305,7 +382,7 @@ vaultwarden-proxmox/
 ## 🔧 Comandos Útiles
 
 ```bash
-# Instalación completa (dependencias + cron)
+# Instalación completa
 ./scripts/install.sh
 
 # Levantar servicio
@@ -314,7 +391,7 @@ vaultwarden-proxmox/
 # Ver logs
 docker compose logs -f
 
-# Reiniciar después de cambios
+# Reiniciar
 docker compose down && ./scripts/start.sh
 
 # Gestión de secretos
@@ -325,18 +402,25 @@ docker compose down && ./scripts/start.sh
 
 # Backup manual
 ./scripts/backup.sh
+
+# Configurar cron
+./scripts/install.sh --cron
+
+# Ver estado
+./scripts/install.sh --status
 ```
 
 ---
 
 ## 📚 Documentación
 
-| Documento                                                                                           | Descripción                |
-| :-------------------------------------------------------------------------------------------------- | :------------------------- |
-| [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki)                                 | Documentación oficial      |
-| [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Configuración de túneles   |
-| [AGE Encryption](https://age-encryption.org/)                                                       | Cifrado moderno            |
-| [Rclone Docs](https://rclone.org/docs/)                                                             | Sincronización con la nube |
+| Documento                                                                                           | Descripción             |
+| :-------------------------------------------------------------------------------------------------- | :---------------------- |
+| [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki)                                 | Documentación oficial   |
+| [AGE Encryption](https://age-encryption.org/)                                                       | Cifrado moderno         |
+| [Rclone Docs](https://rclone.org/docs/)                                                             | Sincronización con nube |
+| [Tailscale](https://tailscale.com/kb/)                                                              | VPN mesh                |
+| [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Túneles seguros         |
 
 ---
 
@@ -347,24 +431,24 @@ docker compose down && ./scripts/start.sh
 - **Docker**: Contenedorización
 
 **Seguridad**
-- **Cloudflare Tunnel**: Exposición segura sin puertos abiertos
 - **AGE**: Cifrado de secretos y backups
+- **Cloudflare Tunnel / Tailscale**: Acceso seguro (opcional)
 
 **Backup**
 - **Bitwarden CLI**: Exportación de bóveda
-- **Rclone**: Sincronización con Google Drive
+- **Rclone**: Sincronización con la nube
 - **Telegram Bot API**: Notificaciones
 
 ---
 
 ## 🔒 Seguridad
 
-- ✅ Sin puertos abiertos en el router (Cloudflare Tunnel)
 - ✅ Secretos cifrados con AGE + passphrase
 - ✅ Backups cifrados antes de subir a la nube
 - ✅ Archivos sensibles excluidos de Git
 - ✅ Registro deshabilitado después de crear cuenta
 - ✅ Soporte para 2FA/TOTP
+- ✅ Múltiples opciones de acceso seguro
 
 ---
 
