@@ -193,6 +193,63 @@ Añade esta línea para backup diario a las 3:00 AM:
 
 ---
 
+## 🔄 Restaurar Backup
+
+### 1. Descargar el backup desde Google Drive
+
+```bash
+# Listar backups disponibles
+rclone ls gdrive:Backups/Vaultwarden
+
+# Descargar el más reciente (ejemplo)
+rclone copy gdrive:Backups/Vaultwarden/vw_backup_20260102_030002.json.age /tmp/
+```
+
+### 2. Descifrar el archivo
+
+```bash
+# Descifrar con tu passphrase
+age -d -o /tmp/vw_backup.json /tmp/vw_backup_20260102_030002.json.age
+```
+
+Te pedirá la passphrase que usaste para cifrar.
+
+### 3. Importar en Vaultwarden
+
+**Opción A: Desde la Web**
+
+1. Accede a **https://vaultwarden.herwingx.dev**
+2. Ve a **⚙️ Ajustes** → **Importar datos**
+3. Selecciona formato: **Bitwarden (json)**
+4. Sube el archivo `/tmp/vw_backup.json`
+5. Click en **Importar datos**
+
+**Opción B: Desde CLI**
+
+```bash
+# Configurar servidor
+bw config server https://vaultwarden.herwingx.dev
+
+# Login
+bw login
+
+# Importar (después de desbloquear)
+bw unlock
+export BW_SESSION="tu_session_key"
+bw import bitwardenjson /tmp/vw_backup.json
+```
+
+### 4. Limpiar archivo descifrado
+
+```bash
+# Eliminar el JSON en texto plano
+rm -f /tmp/vw_backup.json /tmp/vw_backup_*.json.age
+```
+
+> ⚠️ **Importante**: Nunca dejes archivos JSON sin cifrar. Contienen todas tus contraseñas en texto plano.
+
+---
+
 ## 🏗️ Arquitectura
 
 ```
