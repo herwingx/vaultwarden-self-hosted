@@ -19,6 +19,15 @@
 
 set -euo pipefail
 
+# --- PATH PARA CRON ---
+# Cron tiene un PATH limitado, añadimos NVM para encontrar bw (Bitwarden CLI)
+if [[ -d "/root/.nvm/versions/node" ]]; then
+    NODE_PATH=$(find /root/.nvm/versions/node -maxdepth 1 -type d -name "v*" | sort -V | tail -1)
+    if [[ -n "$NODE_PATH" ]]; then
+        export PATH="$NODE_PATH/bin:$PATH"
+    fi
+fi
+
 # --- CONFIGURACIÓN ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -239,7 +248,7 @@ main() {
         send_telegram "✅ <b>Backup Vaultwarden Exitoso</b>
 📅 Fecha: $TIMESTAMP
 💾 Tamaño: $file_size
-⏱ Duración: ${duration}s" "🔐 "
+⏱ Duración: ${duration}s"
         
     else
         log_error "Backup fallido"
