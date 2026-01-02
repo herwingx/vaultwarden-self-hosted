@@ -81,8 +81,13 @@ setup_cron() {
     
     # Crear entrada de cron
     local CRON_CMD="AGE_PASSPHRASE=\"$AGE_PASS\" $BACKUP_SCRIPT >> /var/log/vaultwarden_backup.log 2>&1"
+    local CRON_ENTRY="$CRON_SCHEDULE $CRON_CMD"
     
-    # Verificar si ya existe
+    # Obtener crontab actual (sin la entrada de backup si existe)
+    local CURRENT_CRON=""
+    CURRENT_CRON=$(crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT" || true)
+    
+    # Verificar si ya existía
     if crontab -l 2>/dev/null | grep -q "$BACKUP_SCRIPT"; then
         log_warning "Ya existe una entrada de cron para backup.sh"
         read -p "¿Reemplazar? [s/N]: " -r response
@@ -90,12 +95,14 @@ setup_cron() {
             log_info "Cron no modificado"
             return 0
         fi
-        # Eliminar entrada existente
-        crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT" | crontab -
     fi
     
-    # Agregar nueva entrada
-    (crontab -l 2>/dev/null; echo "$CRON_SCHEDULE $CRON_CMD") | crontab -
+    # Escribir crontab: entradas anteriores + nueva entrada
+    if [[ -n "$CURRENT_CRON" ]]; then
+        echo -e "${CURRENT_CRON}\n${CRON_ENTRY}" | crontab -
+    else
+        echo "$CRON_ENTRY" | crontab -
+    fi
     
     log_success "Cron configurado: $CRON_SCHEDULE"
     echo "  Backup diario a las 3:00 AM"
