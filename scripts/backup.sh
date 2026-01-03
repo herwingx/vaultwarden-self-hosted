@@ -91,11 +91,18 @@ load_secrets() {
     log_info "Descifrando secretos..."
     
     # Si AGE_PASSPHRASE está definida (cron), usarla automáticamente
+    # age soporta la variable AGE_PASSPHRASE nativamente con el flag -p
     if [[ -n "${AGE_PASSPHRASE:-}" ]]; then
-        DECRYPTED=$(echo "$AGE_PASSPHRASE" | age -d -i - "$SECRETS_FILE" 2>/dev/null || age -d "$SECRETS_FILE" <<< "$AGE_PASSPHRASE")
+        # Exportar para que age la lea automáticamente
+        export AGE_PASSPHRASE
+        DECRYPTED=$(age -d -p "$SECRETS_FILE" 2>&1)
+        if [[ $? -ne 0 ]]; then
+            log_error "Error al descifrar secretos: $DECRYPTED"
+            exit 1
+        fi
     else
-        # Modo interactivo
-        DECRYPTED=$(age -d "$SECRETS_FILE")
+        # Modo interactivo - pide passphrase en terminal
+        DECRYPTED=$(age -d -p "$SECRETS_FILE")
     fi
     
     # Cargar variables en memoria (no en disco)
@@ -183,12 +190,9 @@ export_vault() {
 encrypt_backup() {
     log_info "Cifrando backup con AGE..."
     
-    # Usar la misma passphrase para cifrar el backup
-    if [[ -n "${AGE_PASSPHRASE:-}" ]]; then
-        echo "$AGE_PASSPHRASE" | age -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON"
-    else
-        age -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON"
-    fi
+    # AGE_PASSPHRASE ya está exportada, age la usará automáticamente con -p
+    # Si no está definida, age pedirá passphrase (modo interactivo)
+    age -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON"
     
     if [[ -f "$BACKUP_ENCRYPTED" ]]; then
         log_success "Backup cifrado: $BACKUP_ENCRYPTED"
