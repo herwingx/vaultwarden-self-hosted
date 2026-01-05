@@ -9,6 +9,7 @@
 #   ./install.sh          # Instalación completa
 #   ./install.sh --deps   # Solo instalar dependencias
 #   ./install.sh --cron   # Solo configurar cron
+#   ./install.sh --status # Mostrar estado
 # =============================================================================
 
 set -euo pipefail
@@ -18,11 +19,20 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BACKUP_SCRIPT="$SCRIPT_DIR/backup.sh"
 CRON_SCHEDULE="0 3 * * *"  # 3:00 AM diario
 
+# Ubicaciones de clave AGE
+AGE_KEY_LOCATIONS=(
+    "${AGE_KEY_FILE:-}"
+    "$PROJECT_DIR/.age-key"
+    "$HOME/.age/vaultwarden.key"
+    "/root/.age/vaultwarden.key"
+)
+
 # Colores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
@@ -30,10 +40,20 @@ log_success() { echo -e "${GREEN}✓${NC} $1"; }
 log_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
+# --- BUSCAR CLAVE AGE ---
+find_age_key() {
+    for key_path in "${AGE_KEY_LOCATIONS[@]}"; do
+        if [[ -n "$key_path" && -f "$key_path" ]]; then
+            echo "$key_path"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # --- VERIFICAR DEPENDENCIAS ---
-# Las dependencias se instalan via dotfiles, aquí solo verificamos
 check_dependencies() {
-    log_info "Verificando dependencias (instaladas via dotfiles)..."
+    log_info "Verificando dependencias..."
     
     local missing=()
     
@@ -48,14 +68,35 @@ check_dependencies() {
     if [[ ${#missing[@]} -gt 0 ]]; then
         log_error "Faltan dependencias: ${missing[*]}"
         echo ""
-        echo "Instala primero los dotfiles:"
-        echo "  git clone https://github.com/herwingx/dotfiles.git"
-        echo "  cd dotfiles && ./install.sh"
+        echo "Instalar con:"
+        echo "  dnf install age rclone curl    # Fedora"
+        echo "  apt install age rclone curl    # Ubuntu/Debian"
+        echo "  npm install -g @bitwarden/cli  # Bitwarden CLI"
         echo ""
         return 1
     fi
     
     log_success "Todas las dependencias están instaladas"
+}
+
+# --- VERIFICAR CLAVE AGE ---
+check_age_key() {
+    local AGE_KEY
+    AGE_KEY=$(find_age_key) || true
+    
+    if [[ -z "$AGE_KEY" ]]; then
+        log_warning "No se encontró clave AGE"
+        echo ""
+        echo "Opciones:"
+        echo "  1. Generar nueva clave: ./manage_secrets.sh setup"
+        echo "  2. Copiar desde otro servidor: scp user@server:~/.age/vaultwarden.key ~/.age/"
+        echo "  3. Restaurar desde Bitwarden Cloud"
+        echo ""
+        return 1
+    fi
+    
+    log_success "Clave AGE encontrada: $AGE_KEY"
+    return 0
 }
 
 # --- CONFIGURAR CRON ---
@@ -69,18 +110,15 @@ setup_cron() {
         return 1
     fi
     
-    # Pedir passphrase para el cron
-    echo ""
-    read -sp "Ingresa la passphrase de AGE (para el cron): " AGE_PASS
-    echo ""
-    
-    if [[ -z "$AGE_PASS" ]]; then
-        log_error "La passphrase no puede estar vacía"
+    # Verificar que existe clave AGE
+    if ! check_age_key; then
+        log_error "Se requiere clave AGE para el cron"
         return 1
     fi
     
-    # Crear entrada de cron
-    local CRON_CMD="AGE_PASSPHRASE=\"$AGE_PASS\" $BACKUP_SCRIPT >> /var/log/vaultwarden_backup.log 2>&1"
+    # Con identity keys NO necesitamos passphrase
+    # El script backup.sh encontrará la clave automáticamente
+    local CRON_CMD="$BACKUP_SCRIPT >> /var/log/vaultwarden_backup.log 2>&1"
     local CRON_ENTRY="$CRON_SCHEDULE $CRON_CMD"
     
     # Obtener crontab actual (sin la entrada de backup si existe)
@@ -97,7 +135,7 @@ setup_cron() {
         fi
     fi
     
-    # Escribir crontab: entradas anteriores + nueva entrada
+    # Escribir crontab
     if [[ -n "$CURRENT_CRON" ]]; then
         echo -e "${CURRENT_CRON}\n${CRON_ENTRY}" | crontab -
     else
@@ -106,6 +144,7 @@ setup_cron() {
     
     log_success "Cron configurado: $CRON_SCHEDULE"
     echo "  Backup diario a las 3:00 AM"
+    echo "  Log: /var/log/vaultwarden_backup.log"
 }
 
 # --- DESCIFRAR .env.age ---
@@ -123,9 +162,28 @@ decrypt_env() {
         fi
     fi
     
+    local AGE_KEY
+    AGE_KEY=$(find_age_key) || true
+    
     log_info "Descifrando .env.age..."
-    age -d -o "$PROJECT_DIR/.env" "$PROJECT_DIR/.env.age"
-    log_success "Archivo descifrado: .env"
+    
+    if [[ -n "$AGE_KEY" ]]; then
+        log_info "Usando clave: $AGE_KEY"
+        if age -d -i "$AGE_KEY" -o "$PROJECT_DIR/.env" "$PROJECT_DIR/.env.age"; then
+            log_success "Archivo descifrado: .env"
+        else
+            log_error "Error al descifrar"
+            return 1
+        fi
+    else
+        log_info "Usando passphrase..."
+        if age -d -o "$PROJECT_DIR/.env" "$PROJECT_DIR/.env.age"; then
+            log_success "Archivo descifrado: .env"
+        else
+            log_error "Error al descifrar"
+            return 1
+        fi
+    fi
 }
 
 # --- MOSTRAR ESTADO ---
@@ -145,6 +203,17 @@ show_status() {
             echo -e "  ${RED}✗${NC} $cmd"
         fi
     done
+    
+    echo ""
+    echo "Clave AGE:"
+    local AGE_KEY
+    AGE_KEY=$(find_age_key) || true
+    if [[ -n "$AGE_KEY" ]]; then
+        echo -e "  ${GREEN}✓${NC} $AGE_KEY"
+    else
+        echo -e "  ${RED}✗${NC} No encontrada"
+        echo "      Ejecuta: ./manage_secrets.sh setup"
+    fi
     
     echo ""
     echo "Archivos:"
@@ -176,12 +245,23 @@ full_install() {
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
     
-    check_dependencies
+    check_dependencies || true
+    echo ""
+    
+    # Verificar clave AGE
+    if ! check_age_key; then
+        echo ""
+        read -p "¿Generar nueva clave AGE ahora? [S/n]: " -r response
+        response=${response:-S}
+        if [[ "$response" =~ ^[Ss]$ ]]; then
+            "$SCRIPT_DIR/manage_secrets.sh" setup
+        fi
+    fi
     echo ""
     
     # Descifrar .env si existe .env.age
     if [[ -f "$PROJECT_DIR/.env.age" ]] && [[ ! -f "$PROJECT_DIR/.env" ]]; then
-        decrypt_env
+        decrypt_env || true
         echo ""
     fi
     
@@ -189,7 +269,7 @@ full_install() {
     read -p "¿Configurar backup automático diario? [S/n]: " -r response
     response=${response:-S}
     if [[ "$response" =~ ^[Ss]$ ]]; then
-        setup_cron
+        setup_cron || true
     fi
     
     show_status
@@ -197,8 +277,11 @@ full_install() {
     echo "Próximos pasos:"
     echo "  1. Editar .env si necesitas cambiar valores: nano .env"
     echo "  2. Levantar servicios: ./start.sh"
-    echo "  3. Crear cuenta en: https://vaultwarden.herwingx.dev"
-    echo "  4. Obtener API Keys y actualizar .env"
+    echo "  3. Crear cuenta en tu instancia de Vaultwarden"
+    echo "  4. Obtener API Keys y actualizar secretos"
+    echo ""
+    echo -e "${CYAN}💡 IMPORTANTE: Guarda tu clave AGE en Bitwarden Cloud${NC}"
+    echo "   ./manage_secrets.sh show-key"
     echo ""
 }
 
@@ -208,7 +291,7 @@ show_help() {
     echo ""
     echo "Opciones:"
     echo "  (sin args)   Instalación completa"
-    echo "  --deps       Solo instalar dependencias"
+    echo "  --deps       Solo verificar dependencias"
     echo "  --cron       Solo configurar cron"
     echo "  --decrypt    Descifrar .env.age a .env"
     echo "  --status     Mostrar estado"
