@@ -328,7 +328,7 @@ Si ya tienes un reverse proxy configurado, apunta a `localhost:8080`.
 
 </details>
 
-### 8. Crear cuenta y cerrar registros (CRÍTICO)
+### 5. Crear cuenta y cerrar registros (CRÍTICO)
  
  1. Accede a tu Vaultwarden y crea tu cuenta de administrador.
  2. Una vez creada, **deshabilita nuevos registros** editando tus secretos:
