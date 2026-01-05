@@ -145,7 +145,7 @@ encrypt_secrets() {
     
     if [[ ! -f "$SECRETS_FILE" ]]; then
         log_error "No existe $SECRETS_FILE"
-        echo "  Copia secrets.env.example a .env y rellena los valores."
+        echo "  Copia .env.example a .env y rellena los valores."
         exit 1
     fi
     
@@ -339,7 +339,7 @@ show_help() {
     echo "Flujo inicial:"
     echo "  1. ./manage_secrets.sh setup       # Generar clave"
     echo "  2. Guardar clave en Bitwarden      # ¡IMPORTANTE!"
-    echo "  3. cp secrets.env.example .env     # Crear archivo"
+    echo "  3. cp .env.example .env     # Crear archivo"
     echo "  4. nano .env                       # Rellenar valores"
     echo "  5. ./manage_secrets.sh encrypt     # Cifrar"
     echo ""

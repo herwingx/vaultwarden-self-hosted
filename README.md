@@ -108,7 +108,7 @@ Esto genera un par de claves AGE para cifrar/descifrar secretos.
 
 ```bash
 # Copiar plantilla
-cp secrets.env.example .env
+cp .env.example .env
 
 # Editar con tus valores
 nano .env
@@ -118,7 +118,7 @@ Variables principales:
 
 ```env
 # API Keys (Vaultwarden -> Ajustes -> Seguridad -> Keys)
-BW_HOST=https://vault.tudominio.com
+BW_HOST=https://vault.tudominio.com   # URL del servidor (Config Server para CLI)
 BW_CLIENTID=user.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 BW_CLIENTSECRET=tu_client_secret
 BW_PASSWORD=tu_contraseña_maestra
@@ -449,7 +449,7 @@ graph TD
 ```
 vaultwarden/
 ├── docker-compose.yml       # Configuración de Vaultwarden
-├── secrets.env.example      # Plantilla de variables de entorno
+├── .env.example             # Plantilla de variables de entorno
 ├── .env.age                  # 🔒 Secretos cifrados (va a Git)
 ├── .gitignore                # Excluye claves y datos sensibles
 ├── data/                    # 🔒 Datos de Vaultwarden (NO va a Git)
