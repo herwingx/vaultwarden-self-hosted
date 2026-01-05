@@ -78,6 +78,13 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_JSON="/tmp/vw_backup_${TIMESTAMP}.json"
 BACKUP_ENCRYPTED="/tmp/vw_backup_${TIMESTAMP}.json.age"
 
+# --- ISLAMIENTO DE CONF ---
+# Usar un directorio temporal para la configuración de Bitwarden CLI
+# Esto evita conflictos con la configuración global del usuario (dotfiles)
+# y asegura que 'bw config server' funcione correctamente.
+BW_DATA_DIR=$(mktemp -d)
+export BITWARDENCLI_APPDATA_DIR="$BW_DATA_DIR"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -230,8 +237,9 @@ cleanup() {
     log_info "Limpiando archivos temporales..."
     rm -f "$BACKUP_JSON" "$BACKUP_ENCRYPTED" 2>/dev/null || true
     
-    # Cerrar sesión de bw si está logueado
+    # Cerrar sesión y limpiar config aislada
     bw logout > /dev/null 2>&1 || true
+    rm -rf "$BW_DATA_DIR" 2>/dev/null || true
 }
 
 # Asegurar limpieza al salir
@@ -239,7 +247,13 @@ trap cleanup EXIT
 
 # --- EXPORTAR VAULT ---
 export_vault() {
-    log_info "Configurando servidor Vaultwarden..."
+    if [[ -z "${BW_HOST:-}" ]]; then
+        log_error "BW_HOST no está definido en las variables de entorno"
+        return 1
+    fi
+    
+    log_info "Configurando servidor Vaultwarden: $BW_HOST"
+    # Al usar configuración aislada, siempre podemos configurar el servidor sin conflictos
     bw config server "$BW_HOST" > /dev/null
     
     log_info "Iniciando sesión con API Key..."
