@@ -12,6 +12,8 @@ services:
       - ROCKET_PORT=80
       # Habilitar WebSocket para notificaciones en tiempo real
       - WEBSOCKET_ENABLED=true
+      # Zona horaria para logs correctos
+      - TZ=${TZ:-America/Mexico_City}
     volumes:
       # Persistencia de datos (bóveda, configuración, íconos, etc.)
       - ./data:/data
@@ -24,5 +26,7 @@ services:
     container_name: cloudflared
     restart: always
     command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    environment:
+      - TZ=${TZ:-America/Mexico_City}
     depends_on:
       - vaultwarden

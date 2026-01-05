@@ -256,11 +256,16 @@ export_vault() {
     # Al usar configuración aislada, siempre podemos configurar el servidor sin conflictos
     bw config server "$BW_HOST" > /dev/null
     
+    if [[ -z "${BW_CLIENTID:-}" ]] || [[ -z "${BW_CLIENTSECRET:-}" ]]; then
+        log_error "BW_CLIENTID o BW_CLIENTSECRET no están definidos."
+        return 1
+    fi
+    
     log_info "Iniciando sesión con API Key..."
     export BW_CLIENTID="$BW_CLIENTID"
     export BW_CLIENTSECRET="$BW_CLIENTSECRET"
     
-    if ! bw login --apikey > /dev/null 2>&1; then
+    if ! bw login --apikey; then
         log_error "Error al iniciar sesión. Verifica BW_CLIENTID y BW_CLIENTSECRET"
         return 1
     fi
