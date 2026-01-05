@@ -195,84 +195,55 @@ graph TD
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Inicio Rápido (Automático)
 
-### Requisitos Previos
+Este proyecto incluye un **asistente de instalación** que maneja dependencias, claves y configuración de backups automáticamente.
 
-- **Servidor Linux** con Docker instalado (Ubuntu, Debian, Fedora, Proxmox LXC, Raspberry Pi, etc.)
-- **Dominio** (recomendado para HTTPS, pero opcional si usas Tailscale/IP Local)
-- Herramientas: `age`, `rclone`, `bw` (Bitwarden CLI), `curl`
-
-### 1. Clonar el repositorio
+### 1. Clonar y Ejecutar Asistente
 
 ```bash
 git clone https://github.com/herwingx/vaultwarden-self-hosted.git /opt/vaultwarden
 cd /opt/vaultwarden
+./scripts/install.sh
 ```
 
-### 2. Instalar dependencias
+El script `install.sh` te guiará interactivamente para:
+1. ✅ Verificar e instalar dependencias (age, rclone, docker).
+2. 🔑 Generar tu par de claves AGE (si no existen).
+3. ⏰ Configurar el **Cron de Backups** automáticamente.
+
+### 2. Configurar Secretos
+
+Una vez terminado el asistente, configura tus variables:
 
 ```bash
-# Fedora
-dnf install -y age rclone curl
-
-# Ubuntu/Debian
-apt update && apt install -y age rclone curl
-
-# Bitwarden CLI (requiere Node.js)
-npm install -g @bitwarden/cli
-```
-
-### 3. Generar clave de cifrado (IMPORTANTE)
-
-```bash
-./scripts/manage_secrets.sh setup
-```
-
-Esto genera un par de claves AGE para cifrar/descifrar secretos.
-
-> ⚠️ **CRÍTICO**: Guarda la clave que se muestra en pantalla en **Bitwarden Cloud** u otro lugar seguro. Sin esta clave, **no podrás recuperar tus backups** si pierdes el servidor.
-
-### 4. Configurar secretos
-
-```bash
-# Copiar plantilla
+# El asistente ya habrá descifrado el .env si existiera, o puedes crear uno nuevo:
 cp .env.example .env
-
-# Editar con tus valores
 nano .env
 ```
 
-Variables principales:
-
+Variables principales a editar:
 ```env
-# API Keys (Vaultwarden -> Ajustes -> Seguridad -> Keys)
-BW_HOST=https://vault.tudominio.com   # URL del servidor (Config Server para CLI)
-BW_CLIENTID=user.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-BW_CLIENTSECRET=tu_client_secret
-BW_PASSWORD=tu_contraseña_maestra
-
-# Telegram (Bot @BotFather, ID con @userinfobot)
-TELEGRAM_TOKEN=123456:ABC-token
-TELEGRAM_CHAT_ID=123456789
-
-# Rclone (gdrive, s3, dropbox, etc.)
+BW_HOST=https://vault.tudominio.com
+BW_CLIENTID=...
+BW_CLIENTSECRET=...
+BW_PASSWORD=...
 RCLONE_REMOTE=gdrive:Backups/Vaultwarden
 ```
 
-### 5. Cifrar secretos
+### 3. Cifrar y Arrancar
+
+> 🛡️ **Seguridad**: `start.sh` es un launcher seguro que descifra tus secretos en memoria, levanta el contenedor y **borra el archivo .env** del disco inmediatamente.
 
 ```bash
+# 1. Cifrar tus cambios (borra el .env de texto plano)
 ./scripts/manage_secrets.sh encrypt
-```
 
-### 6. Levantar Vaultwarden
-
-```bash
+# 2. Iniciar servicio de forma segura
 ./scripts/start.sh
 ```
 
-### 7. Configurar acceso
+### 4. Configurar Acceso (Dominios)
  
  Esta guía cubre tres escenarios principales:
  
@@ -377,16 +348,26 @@ Si ya tienes un reverse proxy configurado, apunta a `localhost:8080`.
  docker compose up -d
  ```
  
- ### 9. Configurar backups automáticos
+### 6. Configurar Backups
+
+Si usaste `./scripts/install.sh`, el cron ya debería estar configurado. Si no, o si quieres verificar:
 
 ```bash
-# Añadir al crontab (backup diario a las 3:00 AM)
-crontab -e
+# Verificar cron actual
+crontab -l
 ```
 
+<details>
+<summary><strong>Configuración Manual del Cron</strong></summary>
+
+```bash
+crontab -e
+```
+Añadir:
 ```cron
 0 3 * * * /opt/vaultwarden/scripts/backup.sh >> /var/log/vaultwarden_backup.log 2>&1
 ```
+</details>
 
 > ✅ **¡Listo!** Vaultwarden está corriendo con backups automáticos cifrados.
 
@@ -482,18 +463,36 @@ scp ~/.age/vaultwarden.key root@nuevo-servidor:/root/.age/
 
 ---
 
+## 📜 Referencia de Scripts
+
+Diferencias clave entre los scripts incluidos para evitar confusiones:
+
+| Script | Propósito | ¿Cuándo usarlo? |
+| :--- | :--- | :--- |
+| **`install.sh`** | **Setup Inicial**. Instala dependencias, genera claves y configura el Cron. | Solo la primera vez o para arreglar dependencias. |
+| **`start.sh`** | **Launcher Seguro**. Descifra secretos temporalmente, lanza Docker y limpia. | Siempre para iniciar/reiniciar el servicio. |
+| **`manage_secrets.sh`** | **Gestión de Cifrado**. Wrapper de AGE para cifrar/descifrar `.env`. | Cuando edites configuración. |
+| **`backup.sh`** | **Lógica de Backup**. Exporta, cifra y sube a la nube. | Lo ejecuta el Cron automáticamente (o tú manualmente). |
+
+---
+
 ## 🔧 Comandos Útiles
 
 ```bash
-# Gestión
-./scripts/manage_secrets.sh [setup|encrypt|decrypt|edit|view|show-key]
+# Instalación / Reparación
+./scripts/install.sh
 
-# Servicio
-./scripts/start.sh
-docker compose logs -f
+# Operación Diaria
+./scripts/start.sh                     # Iniciar
+docker compose down                    # Detener
 
-# Backup Manual
-./scripts/backup.sh
+# Gestión de Secretos
+./scripts/manage_secrets.sh edit       # Editar de forma segura (descifra -> edita -> cifra)
+./scripts/manage_secrets.sh show-key   # Ver clave privada (para respaldo)
+
+# Backups
+./scripts/backup.sh                    # Ejecutar backup manual ahora
+tail -f /var/log/vaultwarden_backup.log # Ver logs de backup
 ```
 
 ---
