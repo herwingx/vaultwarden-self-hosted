@@ -7,7 +7,12 @@
 .env
 # .env.age SÍ va a Git (está cifrado)
 !.env.age
-!.env.example
+!secrets.env.example
+
+# --- CLAVES AGE ---
+# La clave privada NUNCA va a Git
+.age-key
+*.key
 
 # --- DATOS DE VAULTWARDEN ---
 data/

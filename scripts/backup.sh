@@ -6,26 +6,58 @@
 # Exporta la bóveda de Vaultwarden, la cifra con AGE y la sube a Google Drive
 # usando rclone. Notifica por Telegram el resultado.
 #
+# ESTRATEGIA DE CIFRADO:
+#   Este script usa AGE con IDENTITY FILES (claves) en lugar de passphrase.
+#   Esto permite ejecución automática sin terminal (cron/systemd).
+#
 # Requisitos:
-#   - age (apt install age)
+#   - age (apt install age / dnf install age)
 #   - bw (Bitwarden CLI)
 #   - rclone (configurado con remote gdrive)
 #   - curl (para Telegram)
 #
+# Configuración inicial:
+#   1. Generar clave: age-keygen -o ~/.age/vaultwarden.key
+#   2. Cifrar secretos: age -R ~/.age/vaultwarden.key.pub -o .env.age secrets.env
+#   3. Configurar AGE_KEY_FILE en crontab o como variable de entorno
+#
 # Uso:
-#   ./backup.sh              # Ejecución interactiva (pide passphrase)
-#   AGE_PASSPHRASE="xxx" ./backup.sh  # Ejecución automática (cron)
+#   ./backup.sh                                    # Usa ~/.age/vaultwarden.key
+#   AGE_KEY_FILE=/path/to/key ./backup.sh          # Clave personalizada
+#   AGE_PASSPHRASE="xxx" ./backup.sh               # Modo passphrase (interactivo)
 # =============================================================================
 
 set -euo pipefail
 
 # --- PATH PARA CRON ---
-# Cron tiene un PATH limitado, añadimos NVM para encontrar bw (Bitwarden CLI)
-if [[ -d "/root/.nvm/versions/node" ]]; then
-    NODE_PATH=$(find /root/.nvm/versions/node -maxdepth 1 -type d -name "v*" | sort -V | tail -1)
-    if [[ -n "$NODE_PATH" ]]; then
-        export PATH="$NODE_PATH/bin:$PATH"
+# Cron tiene un PATH muy limitado, añadimos rutas estándar del sistema
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+# Buscar NVM en ubicaciones comunes (root y usuario normal)
+NVM_DIRS=(
+    "$HOME/.nvm/versions/node"           # Usuario normal
+    "/root/.nvm/versions/node"           # Root
+    "/home/$USER/.nvm/versions/node"     # Alternativa usuario
+)
+
+for NVM_DIR in "${NVM_DIRS[@]}"; do
+    if [[ -d "$NVM_DIR" ]]; then
+        NODE_PATH=$(find "$NVM_DIR" -maxdepth 1 -type d -name "v*" 2>/dev/null | sort -V | tail -1)
+        if [[ -n "$NODE_PATH" ]]; then
+            export PATH="$NODE_PATH/bin:$PATH"
+            break
+        fi
     fi
+done
+
+# Fallback: buscar bw en ubicaciones conocidas
+if ! command -v bw &> /dev/null; then
+    for BW_PATH in /usr/local/bin/bw /usr/local/sbin/bw /usr/bin/bw; do
+        if [[ -x "$BW_PATH" ]]; then
+            export PATH="$(dirname "$BW_PATH"):$PATH"
+            break
+        fi
+    done
 fi
 
 # --- CONFIGURACIÓN ---
@@ -33,6 +65,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SECRETS_FILE="$PROJECT_DIR/.env.age"
 LOG_FILE="/var/log/vaultwarden_backup.log"
+
+# Ubicaciones de clave AGE (en orden de prioridad)
+AGE_KEY_LOCATIONS=(
+    "${AGE_KEY_FILE:-}"                          # Variable de entorno
+    "$PROJECT_DIR/.age-key"                       # En el proyecto
+    "$HOME/.age/vaultwarden.key"                  # Usuario normal
+    "/root/.age/vaultwarden.key"                  # Root
+)
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_JSON="/tmp/vw_backup_${TIMESTAMP}.json"
@@ -73,11 +113,23 @@ check_dependencies() {
         log_error "Faltan dependencias: ${missing[*]}"
         echo ""
         echo "Instalar con:"
-        echo "  apt install age rclone curl"
+        echo "  dnf install age rclone curl   # Fedora"
+        echo "  apt install age rclone curl   # Ubuntu/Debian"
         echo "  # Para bw (Bitwarden CLI):"
         echo "  npm install -g @bitwarden/cli"
         exit 1
     fi
+}
+
+# --- ENCONTRAR CLAVE AGE ---
+find_age_key() {
+    for key_path in "${AGE_KEY_LOCATIONS[@]}"; do
+        if [[ -n "$key_path" && -f "$key_path" ]]; then
+            echo "$key_path"
+            return 0
+        fi
+    done
+    return 1
 }
 
 # --- CARGAR SECRETOS ---
@@ -90,32 +142,71 @@ load_secrets() {
     
     log_info "Descifrando secretos..."
     
-    # Si AGE_PASSPHRASE está definida (cron), usarla automáticamente
-    # age soporta la variable AGE_PASSPHRASE nativamente con el flag -p
-    if [[ -n "${AGE_PASSPHRASE:-}" ]]; then
-        # Exportar para que age la lea automáticamente
-        export AGE_PASSPHRASE
-        DECRYPTED=$(age -d -p "$SECRETS_FILE" 2>&1)
-        if [[ $? -ne 0 ]]; then
-            log_error "Error al descifrar secretos: $DECRYPTED"
-            exit 1
-        fi
+    local DECRYPTED=""
+    local AGE_EXIT_CODE=0
+    local AGE_KEY=""
+    
+    # Buscar clave de identidad AGE
+    AGE_KEY=$(find_age_key) || true
+    
+    if [[ -n "$AGE_KEY" ]]; then
+        # Modo IDENTITY FILE (recomendado para cron)
+        log_info "Usando clave: $AGE_KEY"
+        DECRYPTED=$(age -d -i "$AGE_KEY" "$SECRETS_FILE" 2>&1) || AGE_EXIT_CODE=$?
+        
+    elif [[ -n "${AGE_PASSPHRASE:-}" ]]; then
+        # Modo PASSPHRASE con archivo temporal seguro
+        log_info "Usando passphrase (${#AGE_PASSPHRASE} caracteres)"
+        
+        # Crear archivo temporal seguro para passphrase
+        local PASS_FIFO
+        PASS_FIFO=$(mktemp -u)
+        mkfifo -m 600 "$PASS_FIFO"
+        
+        # Escribir passphrase en background y descifrar
+        echo "$AGE_PASSPHRASE" > "$PASS_FIFO" &
+        DECRYPTED=$(age -d "$SECRETS_FILE" < "$PASS_FIFO" 2>&1) || AGE_EXIT_CODE=$?
+        
+        rm -f "$PASS_FIFO"
+        
     else
-        # Modo interactivo - pide passphrase en terminal
-        DECRYPTED=$(age -d -p "$SECRETS_FILE")
+        # Modo INTERACTIVO (terminal)
+        log_info "Modo interactivo - ingresa la passphrase:"
+        DECRYPTED=$(age -d "$SECRETS_FILE") || AGE_EXIT_CODE=$?
+    fi
+    
+    if [[ $AGE_EXIT_CODE -ne 0 ]]; then
+        log_error "Error al descifrar (exit: $AGE_EXIT_CODE): $DECRYPTED"
+        echo ""
+        echo "Soluciones:"
+        echo "  1. Crear clave AGE: age-keygen -o ~/.age/vaultwarden.key"
+        echo "  2. Re-cifrar secretos con la clave pública"
+        echo "  3. O definir AGE_KEY_FILE=/ruta/a/clave"
+        exit 1
+    fi
+    
+    # Verificar que tenemos contenido descifrado
+    if [[ -z "$DECRYPTED" ]]; then
+        log_error "El archivo descifrado está vacío"
+        exit 1
     fi
     
     # Cargar variables en memoria (no en disco)
-    while IFS='=' read -r key value; do
+    local loaded_count=0
+    while IFS='=' read -r key value || [[ -n "$key" ]]; do
         # Ignorar líneas vacías y comentarios
-        [[ -z "$key" || "$key" =~ ^# ]] && continue
-        # Eliminar espacios y exportar
+        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+        # Eliminar espacios
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs)
-        export "$key=$value"
+        # Solo exportar si key no está vacía
+        if [[ -n "$key" ]]; then
+            export "$key=$value"
+            loaded_count=$((loaded_count + 1))
+        fi
     done <<< "$DECRYPTED"
     
-    log_success "Secretos cargados en memoria"
+    log_success "Secretos cargados en memoria ($loaded_count variables)"
 }
 
 # --- TELEGRAM ---
@@ -190,9 +281,46 @@ export_vault() {
 encrypt_backup() {
     log_info "Cifrando backup con AGE..."
     
-    # AGE_PASSPHRASE ya está exportada, age la usará automáticamente con -p
-    # Si no está definida, age pedirá passphrase (modo interactivo)
-    age -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON"
+    local AGE_KEY=""
+    local ENCRYPT_EXIT=0
+    
+    # Buscar clave de identidad AGE
+    AGE_KEY=$(find_age_key) || true
+    
+    if [[ -n "$AGE_KEY" ]]; then
+        # Extraer clave pública del archivo de identidad
+        local PUB_KEY
+        PUB_KEY=$(grep -o 'age1[a-z0-9]*' "$AGE_KEY" | head -1 || grep 'public key' "$AGE_KEY" | awk '{print $NF}')
+        
+        if [[ -z "$PUB_KEY" ]]; then
+            # Generar clave pública desde la privada
+            PUB_KEY=$(age-keygen -y "$AGE_KEY" 2>/dev/null)
+        fi
+        
+        log_info "Cifrando con clave pública"
+        age -r "$PUB_KEY" -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON" || ENCRYPT_EXIT=$?
+        
+    elif [[ -n "${AGE_PASSPHRASE:-}" ]]; then
+        # Modo PASSPHRASE con FIFO
+        log_info "Cifrando con passphrase"
+        
+        local PASS_FIFO
+        PASS_FIFO=$(mktemp -u)
+        mkfifo -m 600 "$PASS_FIFO"
+        
+        echo "$AGE_PASSPHRASE" > "$PASS_FIFO" &
+        age -e -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON" < "$PASS_FIFO" || ENCRYPT_EXIT=$?
+        
+        rm -f "$PASS_FIFO"
+    else
+        # Modo interactivo
+        age -e -p -o "$BACKUP_ENCRYPTED" "$BACKUP_JSON" || ENCRYPT_EXIT=$?
+    fi
+    
+    if [[ $ENCRYPT_EXIT -ne 0 ]]; then
+        log_error "Error al cifrar el backup (exit: $ENCRYPT_EXIT)"
+        return 1
+    fi
     
     if [[ -f "$BACKUP_ENCRYPTED" ]]; then
         log_success "Backup cifrado: $BACKUP_ENCRYPTED"
