@@ -221,7 +221,24 @@ Si ya tienes un reverse proxy configurado, apunta a `localhost:8080`.
 
 </details>
 
-### 8. Configurar backups automáticos
+### 8. Crear cuenta y cerrar registros (CRÍTICO)
+ 
+ 1. Accede a tu Vaultwarden (ej: `https://vault.tudominio.com` o `http://localhost:8080`).
+ 2. Crea tu cuenta de usuario (esta será la cuenta "admin").
+ 3. Una vez creada, **es vital deshabilitar nuevos registros** para evitar que desconocidos usen tu servidor.
+ 
+ Edita `docker-compose.yml`:
+ ```yaml
+ environment:
+   - SIGNUPS_ALLOWED=false  # <--- Cambiar de true a false
+ ```
+ 
+ Y reinicia para aplicar cambios:
+ ```bash
+ ./scripts/start.sh
+ ```
+ 
+ ### 9. Configurar backups automáticos
 
 ```bash
 # Añadir al crontab (backup diario a las 3:00 AM)
