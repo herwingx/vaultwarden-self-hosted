@@ -25,18 +25,42 @@
 
 ## 💎 Funciones Premium GRATIS
 
-Vaultwarden incluye **todas las funciones de Bitwarden Premium** sin costo:
+Vaultwarden desbloquea **todas las funciones que Bitwarden cobra** en su plan Premium o de Organización.
 
-| Función Premium              | Bitwarden Cloud | Vaultwarden |
-| :--------------------------- | :-------------: | :---------: |
-| 🔑 **TOTP Authenticator**     | $10/año         | ✅ Gratis    |
-| 📎 **Archivos adjuntos**      | $10/año         | ✅ Gratis    |
-| 🚨 **Informes de seguridad**  | $10/año         | ✅ Gratis    |
-| 🔐 **Acceso de emergencia**   | $10/año         | ✅ Gratis    |
-| 👥 **Organizaciones**         | $40/año         | ✅ Gratis    |
-| 🔗 **Bitwarden Send**         | Limitado        | ✅ Ilimitado |
-| 🔒 **Vault Health Reports**   | $10/año         | ✅ Gratis    |
-| 🎨 **Iconos personalizados**  | $10/año         | ✅ Gratis    |
+| Función Premium | Bitwarden ($$) | Vaultwarden (Gratis) |
+| :--- | :---: | :---: |
+| 🔐 **TOTP Authenticator** | $10/año | ✅ Incluido |
+| 🛡️ **2FA Físico (YubiKey)** | $10/año | ✅ Incluido |
+| 📊 **Reportes de Salud** | $10/año | ✅ Incluido |
+| 📎 **Adjuntos Cifrados** | 1GB (Global) | 💾 Ilimitado (Tu Disco) |
+| 🆘 **Acceso de Emergencia** | $10/año | ✅ Incluido |
+| 🏢 **Organizaciones** | $40/año | ♾️ Ilimitadas |
+
+### 📋 Detalle de Beneficios
+
+1. **Autenticador Integrado (TOTP)**
+   Genera códigos de verificación de dos pasos (6 dígitos) directamente en la app. En la versión gratuita oficial solo puedes guardar la semilla, pero no generar códigos.
+
+2. **2FA Avanzada (Hardware)**
+   Soporte completo para llaves físicas de seguridad (**YubiKey, FIDO2/WebAuthn**) y Duo. Bitwarden Free solo permite correo o apps básicas.
+
+3. **Reportes de Salud (Vault Health)**
+   Análisis de seguridad que detecta:
+   - Contraseñas expuestas en brechas de datos (Have I Been Pwned).
+   - Contraseñas reutilizadas o débiles.
+   - Sitios web sin HTTPS.
+
+4. **Archivos Adjuntos y "Send"**
+   - **Adjuntos**: Sube documentos e imágenes cifrados a tus ítems. Límite definido solo por el espacio de tu servidor.
+   - **Send**: Comparte archivos cifrados mediante enlaces temporales (Bitwarden Free solo permite texto).
+
+5. **Organizaciones Ilimitadas**
+   Crea grupos para compartir contraseñas con familiares, amigos o equipos de trabajo sin el límite de 2 usuarios/colecciones.
+
+6. **Acceso de Emergencia**
+   Designa contactos de confianza que pueden solicitar acceso a tu bóveda tras un tiempo de espera si tú no puedes hacerlo.
+
+> 💡 **Nota (2026)**: Para obtener estas ventajas, el compromiso es **autoalojar** (self-host) el servicio en tu propio hardware (VPS, Raspberry Pi, NAS) y encargarte de la seguridad y backups, tal como facilita este proyecto.
 
 ---
 
@@ -286,41 +310,34 @@ Este proyecto usa **AGE (Actually Good Encryption)** con **identity keys** (clav
 
 ### Flujo de cifrado
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  CIFRADO (con clave pública)                                 │
-│  .env  ──▶  [ age1abc... ]  ──▶  .env.age                    │
-└──────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────┐
-│  DESCIFRADO (con clave privada)                              │
-│  .env.age  ──▶  [ AGE-SECRET-KEY-1... ]  ──▶  .env           │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    ENV[.env] -- Clave Pública --> ENC(fa:fa-file-code .env.age)
+    ENC -- Clave Privada --> ENV
+    
+    style ENV fill:#E2E8F0,stroke:#333
+    style ENC fill:#2D3748,stroke:#fff,color:#fff
 ```
 
 ### 🔑 Ciclo de vida de las claves
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        SETUP INICIAL                                 │
-│                                                                      │
-│   ./manage_secrets.sh setup                                          │
-│            │                                                         │
-│            ▼                                                         │
-│   ┌─────────────────┐     ┌──────────────────────────────────────┐  │
-│   │ ~/.age/         │     │ GUARDAR EN BITWARDEN CLOUD           │  │
-│   │ vaultwarden.key │ ──▶ │ (Secure Note con todo el contenido)  │  │
-│   └─────────────────┘     └──────────────────────────────────────┘  │
-│         │                              │                             │
-│         │ Clave local                  │ Respaldo seguro             │
-│         ▼                              ▼                             │
-│   ┌─────────────┐              ┌─────────────────┐                  │
-│   │ Cifrar/     │              │ Recuperación    │                  │
-│   │ Descifrar   │              │ de desastres    │                  │
-│   │ backups     │              │ si pierdes      │                  │
-│   │ localmente  │              │ el servidor     │                  │
-│   └─────────────┘              └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Local ["💻 Tu Servidor"]
+        Step1[1. ./manage_secrets.sh setup] --> Key[🔑 ~/.age/vaultwarden.key]
+        Key --> Encrypt[2. Cifrar Backups]
+        Key --> Decrypt[3. Descifrar / Restaurar]
+    end
+
+    subgraph Cloud ["☁️ Nube Segura"]
+        BW[🔐 Bitwarden Cloud<br/>(Secure Note)]
+    end
+
+    Key ==>|⚠️ RESPALDO MANUAL CRÍTICO| BW
+    BW -.->|Recuperación de Desastres| Local
+
+    style Key fill:#F59E0B,stroke:#000,color:#000
+    style BW fill:#175DDC,color:#fff
 ```
 
 ### Comandos de gestión de secretos
