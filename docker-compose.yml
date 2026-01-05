@@ -6,8 +6,8 @@ services:
     environment:
       # Dominio público (a través de Cloudflare Tunnel)
       - DOMAIN=https://vaultwarden.herwingx.dev
-      # ⚠️ IMPORTANTE: Cambiar a 'false' después de crear tu cuenta
-      - SIGNUPS_ALLOWED=true
+      # Control de registros (ver .env)
+      - SIGNUPS_ALLOWED=${SIGNUPS_ALLOWED:-false}
       # Puerto interno del servidor
       - ROCKET_PORT=80
       # Habilitar WebSocket para notificaciones en tiempo real

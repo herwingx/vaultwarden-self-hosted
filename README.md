@@ -223,19 +223,22 @@ Si ya tienes un reverse proxy configurado, apunta a `localhost:8080`.
 
 ### 8. Crear cuenta y cerrar registros (CRÍTICO)
  
- 1. Accede a tu Vaultwarden (ej: `https://vault.tudominio.com` o `http://localhost:8080`).
- 2. Crea tu cuenta de usuario (esta será la cuenta "admin").
- 3. Una vez creada, **es vital deshabilitar nuevos registros** para evitar que desconocidos usen tu servidor.
+ 1. Accede a tu Vaultwarden y crea tu cuenta de administrador.
+ 2. Una vez creada, **deshabilita nuevos registros** editando tus secretos:
  
- Edita `docker-compose.yml`:
- ```yaml
- environment:
-   - SIGNUPS_ALLOWED=false  # <--- Cambiar de true a false
+ ```bash
+ # 1. Editar secretos
+ ./scripts/manage_secrets.sh edit
  ```
  
- Y reinicia para aplicar cambios:
+ ```env
+ # Cambiar a false dentro del editor
+ SIGNUPS_ALLOWED=false
+ ```
+ 
+ 3. Reiniciar para aplicar:
  ```bash
- ./scripts/start.sh
+ docker compose up -d
  ```
  
  ### 9. Configurar backups automáticos
