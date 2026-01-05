@@ -90,6 +90,111 @@ Vaultwarden desbloquea **todas las funciones que Bitwarden cobra** en su plan Pr
 
 ---
 
+## 🔐 Sistema de Cifrado (AGE)
+
+Este proyecto usa **AGE (Actually Good Encryption)** con **identity keys** (claves pública/privada) en lugar de passphrase.
+
+### 📝 TL;DR - Resumen rápido
+
+```
+1. Generas UNA clave    →  ~/.age/vaultwarden.key
+2. La guardas en Bitwarden Cloud (¡CRÍTICO!)
+3. El backup usa esa clave automáticamente
+4. Si pierdes el servidor, recuperas la clave de Bitwarden
+5. ¡Listo! Puedes descifrar todos tus backups
+```
+
+### Flujo de cifrado
+
+```mermaid
+graph LR
+    ENV[".env"] -- Clave Pública --> ENC[".env.age"]
+    ENC -- Clave Privada --> ENV
+    
+    style ENV fill:#E2E8F0,stroke:#333
+    style ENC fill:#2D3748,stroke:#fff,color:#fff
+```
+
+### 🔑 Ciclo de vida de las claves
+
+```mermaid
+graph TD
+    subgraph Local ["💻 Tu Servidor"]
+        Step1["1. ./manage_secrets.sh setup"] --> Key["🔑 ~/.age/vaultwarden.key"]
+        Key --> Encrypt["2. Cifrar Backups"]
+        Key --> Decrypt["3. Descifrar / Restaurar"]
+    end
+
+    subgraph Cloud ["☁️ Nube Segura"]
+        BW["🔐 Bitwarden Cloud<br/>(Secure Note)"]
+    end
+
+    Key ==>|⚠️ RESPALDO MANUAL CRÍTICO| BW
+    BW -.->|Recuperación de Desastres| Local
+
+    style Key fill:#F59E0B,stroke:#000,color:#000
+    style BW fill:#175DDC,color:#fff
+```
+
+### ¿Por qué identity keys?
+
+| Método     | Modo Interactivo | Modo Cron | Recuperación       |
+| :--------- | :--------------- | :-------- | :----------------- |
+| Passphrase | ✅                | ❌ Falla   | ✅ Fácil            |
+| **Identity Key** | ✅          | ✅ Funciona | ✅ Respaldar clave |
+
+---
+
+## 🏗️ Arquitectura
+
+```mermaid
+graph TD
+    subgraph Internet["🌐 Internet"]
+        Client["📱 Clientes<br/>Web / Apps / CLI"]
+    end
+
+    subgraph Access["🔒 Capa de Acceso"]
+        CF["☁️ Cloudflare Tunnel"]
+        TS["🟣 Tailscale VPN"]
+        RP["🔀 Reverse Proxy"]
+    end
+
+    subgraph Server["🖥️ Tu Servidor Linux"]
+        subgraph Docker["🐳 Docker"]
+            VW["🔐 Vaultwarden<br/>:80"]
+            DB[("💾 SQLite<br/>./data")]
+        end
+        
+        subgraph Backup["⏰ Sistema de Backup"]
+            BS["📜 backup.sh"]
+            AGE["🔒 AGE Keys"]
+            RC["☁️ rclone"]
+        end
+        
+        KEY["🔑 ~/.age/vaultwarden.key"]
+    end
+
+    subgraph Cloud["☁️ Almacenamiento"]
+        GD["📁 Google Drive"]
+        BW["🔐 Bitwarden Cloud<br/>(Respaldo de clave)"]
+    end
+
+    Client --> CF & TS & RP
+    CF & TS & RP --> VW
+    VW <--> DB
+    BS --> VW
+    BS --> AGE --> RC
+    KEY --> AGE
+    RC --> GD
+    KEY -.->|Respaldo| BW
+    
+    style VW fill:#175DDC,color:#fff
+    style AGE fill:#2D3748,color:#fff
+    style KEY fill:#F59E0B,color:#000
+```
+
+---
+
 ## 🚀 Inicio Rápido
 
 ### Requisitos Previos
@@ -287,262 +392,6 @@ crontab -e
 
 ---
 
-## 🔐 Sistema de Cifrado (AGE)
-
-Este proyecto usa **AGE (Actually Good Encryption)** con **identity keys** (claves pública/privada) en lugar de passphrase.
-
-### 📝 TL;DR - Resumen rápido
-
-```
-1. Generas UNA clave    →  ~/.age/vaultwarden.key
-2. La guardas en Bitwarden Cloud (¡CRÍTICO!)
-3. El backup usa esa clave automáticamente
-4. Si pierdes el servidor, recuperas la clave de Bitwarden
-5. ¡Listo! Puedes descifrar todos tus backups
-```
-
-### ¿Por qué identity keys?
-
-| Método     | Modo Interactivo | Modo Cron | Recuperación       |
-| :--------- | :--------------- | :-------- | :----------------- |
-| Passphrase | ✅                | ❌ Falla   | ✅ Fácil            |
-| **Identity Key** | ✅          | ✅ Funciona | ✅ Respaldar clave |
-
-### Flujo de cifrado
-
-```mermaid
-graph LR
-    ENV[.env] -- Clave Pública --> ENC(fa:fa-file-code .env.age)
-    ENC -- Clave Privada --> ENV
-    
-    style ENV fill:#E2E8F0,stroke:#333
-    style ENC fill:#2D3748,stroke:#fff,color:#fff
-```
-
-### 🔑 Ciclo de vida de las claves
-
-```mermaid
-graph TD
-    subgraph Local ["💻 Tu Servidor"]
-        Step1[1. ./manage_secrets.sh setup] --> Key[🔑 ~/.age/vaultwarden.key]
-        Key --> Encrypt[2. Cifrar Backups]
-        Key --> Decrypt[3. Descifrar / Restaurar]
-    end
-
-    subgraph Cloud ["☁️ Nube Segura"]
-        BW[🔐 Bitwarden Cloud<br/>(Secure Note)]
-    end
-
-    Key ==>|⚠️ RESPALDO MANUAL CRÍTICO| BW
-    BW -.->|Recuperación de Desastres| Local
-
-    style Key fill:#F59E0B,stroke:#000,color:#000
-    style BW fill:#175DDC,color:#fff
-```
-
-### Comandos de gestión de secretos
-
-```bash
-./scripts/manage_secrets.sh setup      # Generar par de claves
-./scripts/manage_secrets.sh encrypt    # Cifrar .env -> .env.age
-./scripts/manage_secrets.sh decrypt    # Descifrar .env.age -> .env
-./scripts/manage_secrets.sh edit       # Editar y re-cifrar
-./scripts/manage_secrets.sh view       # Ver sin guardar
-./scripts/manage_secrets.sh show-key   # Mostrar clave para respaldar
-```
-
----
-
-## 🔄 Respaldo y Recuperación de Clave
-
-### 📋 Respaldar clave en Bitwarden Cloud
-
-> ⚠️ **CRÍTICO**: Sin la clave privada, tus backups son **irrecuperables**. Guárdala AHORA.
-
-1. **Ver tu clave completa**:
-   ```bash
-   ./scripts/manage_secrets.sh show-key
-   ```
-
-2. **En Bitwarden Cloud** (bitwarden.com, NO tu Vaultwarden):
-   - Crear nueva **Secure Note**
-   - Nombre: `🔐 Vaultwarden Recovery Key`
-   - Contenido: Pegar TODO el contenido que muestra el comando
-   
-   Ejemplo de contenido a guardar:
-   ```
-   # Vaultwarden AGE Key - Creada: 2026-01-05
-   # Servidor: LXC Proxmox / VPS / etc.
-   
-   # created: 2026-01-05T10:40:00-06:00
-   # public key: age15yu005zkql3g6wqc4pr3822247wujzmy9atlzjsnq03jk6su797q346qjq
-   AGE-SECRET-KEY-1ABCDEFGHIJKLMNOPQRSTUVWXYZ...
-   
-   # Instrucciones de recuperación:
-   # 1. mkdir -p ~/.age && chmod 700 ~/.age
-   # 2. nano ~/.age/vaultwarden.key  (pegar este contenido)
-   # 3. chmod 600 ~/.age/vaultwarden.key
-   ```
-
-3. **Verificar** que puedes acceder a la nota desde otro dispositivo
-
-### 🔄 Transferir clave a otro servidor
-
-**Opción A: Copiar directamente (SCP)**
-
-```bash
-# Desde el servidor ORIGEN
-scp ~/.age/vaultwarden.key root@NUEVO-SERVIDOR:/root/.age/
-
-# En el servidor DESTINO
-chmod 600 ~/.age/vaultwarden.key
-```
-
-**Opción B: Copiar manualmente**
-
-```bash
-# En el servidor ORIGEN - mostrar clave
-cat ~/.age/vaultwarden.key
-
-# En el servidor DESTINO - crear archivo
-mkdir -p ~/.age && chmod 700 ~/.age
-nano ~/.age/vaultwarden.key    # Pegar el contenido
-chmod 600 ~/.age/vaultwarden.key
-```
-
-**Opción C: Desde Bitwarden Cloud**
-
-```bash
-# En el nuevo servidor
-mkdir -p ~/.age && chmod 700 ~/.age
-nano ~/.age/vaultwarden.key    # Pegar desde tu Secure Note
-chmod 600 ~/.age/vaultwarden.key
-
-# Verificar
-./scripts/manage_secrets.sh view
-```
-
-### 🆘 Recuperación de Desastres Completa
-
-Si perdiste el servidor y necesitas recuperar todo:
-
-1. **Recuperar clave desde Bitwarden Cloud**:
-   ```bash
-   mkdir -p ~/.age && chmod 700 ~/.age
-   nano ~/.age/vaultwarden.key  # Pegar desde tu Secure Note
-   chmod 600 ~/.age/vaultwarden.key
-   ```
-
-2. **Clonar repositorio**:
-   ```bash
-   git clone https://github.com/tu-usuario/vaultwarden-self-hosted.git
-   cd vaultwarden-self-hosted
-   ```
-
-3. **Descifrar secretos**:
-   ```bash
-   ./scripts/manage_secrets.sh view      # Verificar que funciona
-   ./scripts/manage_secrets.sh decrypt   # Descifrar a .env
-   ```
-
-4. **Recuperar backup de la nube**:
-   ```bash
-   # Listar backups disponibles
-   rclone ls gdrive:Backups/Vaultwarden
-   
-   # Descargar el más reciente
-   rclone copy gdrive:Backups/Vaultwarden/vw_backup_FECHA.json.age /tmp/
-   
-   # Descifrar
-   age -d -i ~/.age/vaultwarden.key -o /tmp/backup.json /tmp/vw_backup_FECHA.json.age
-   ```
-
-5. **Levantar Vaultwarden**:
-   ```bash
-   ./scripts/start.sh
-   ```
-
-6. **Importar datos**:
-   - Accede a la web → **Ajustes** → **Importar datos** → **Bitwarden (json)**
-   - Selecciona `/tmp/backup.json`
-
-7. **Limpiar archivos temporales**:
-   ```bash
-   rm -f /tmp/backup.json /tmp/*.json.age
-   ```
-
-> 💡 **Tip**: Prueba el proceso de recuperación en un servidor de prueba ANTES de necesitarlo.
-
----
-
-## 🏗️ Arquitectura
-
-```mermaid
-graph TD
-    subgraph Internet["🌐 Internet"]
-        Client["📱 Clientes<br/>Web / Apps / CLI"]
-    end
-
-    subgraph Access["🔒 Capa de Acceso"]
-        CF["☁️ Cloudflare Tunnel"]
-        TS["🟣 Tailscale VPN"]
-        RP["🔀 Reverse Proxy"]
-    end
-
-    subgraph Server["🖥️ Tu Servidor Linux"]
-        subgraph Docker["🐳 Docker"]
-            VW["🔐 Vaultwarden<br/>:80"]
-            DB[("💾 SQLite<br/>./data")]
-        end
-        
-        subgraph Backup["⏰ Sistema de Backup"]
-            BS["📜 backup.sh"]
-            AGE["🔒 AGE Keys"]
-            RC["☁️ rclone"]
-        end
-        
-        KEY["🔑 ~/.age/vaultwarden.key"]
-    end
-
-    subgraph Cloud["☁️ Almacenamiento"]
-        GD["📁 Google Drive"]
-        BW["🔐 Bitwarden Cloud<br/>(Respaldo de clave)"]
-    end
-
-    Client --> CF & TS & RP
-    CF & TS & RP --> VW
-    VW <--> DB
-    BS --> VW
-    BS --> AGE --> RC
-    KEY --> AGE
-    RC --> GD
-    KEY -.->|Respaldo| BW
-
-    style VW fill:#175DDC,color:#fff
-    style AGE fill:#2D3748,color:#fff
-    style KEY fill:#F59E0B,color:#000
-```
-
----
-
-## 📁 Estructura del Proyecto
-
-```
-vaultwarden/
-├── docker-compose.yml       # Configuración de Vaultwarden
-├── .env.example             # Plantilla de variables de entorno
-├── .env.age                  # 🔒 Secretos cifrados (va a Git)
-├── .gitignore                # Excluye claves y datos sensibles
-├── data/                    # 🔒 Datos de Vaultwarden (NO va a Git)
-├── scripts/
-│   ├── install.sh           # Instalación y configuración
-│   ├── start.sh             # Iniciar servicios
-│   ├── backup.sh            # Backup automatizado
-│   └── manage_secrets.sh    # Gestor de secretos y claves
-├── LICENSE
-└── README.md
-```
-
 ## 💾 Gestión de Datos y Persistencia
 
 Toda la información de tu instancia se guarda estrictamente en el directorio `./data`. Este volumen está montado en `docker-compose.yml` y persiste entre reinicios.
@@ -562,61 +411,107 @@ El script de backup automático (`./scripts/backup.sh`) realiza una **exportaci�
 
 ---
 
-## 🔧 Comandos Útiles
+## 🔄 Respaldo y Recuperación de Clave
 
-```bash
-# Instalación completa
-./scripts/install.sh
+> ⚠️ **CRÍTICO**: Sin la clave privada, tus backups son **irrecuperables**. Guárdala AHORA.
 
-# Gestión de claves
-./scripts/manage_secrets.sh setup      # Primera vez: generar clave
-./scripts/manage_secrets.sh show-key   # Ver clave para respaldar
+### 📋 Respaldar clave en Bitwarden Cloud
 
-# Gestión de secretos
-./scripts/manage_secrets.sh encrypt    # Cifrar .env
-./scripts/manage_secrets.sh decrypt    # Descifrar a .env
-./scripts/manage_secrets.sh edit       # Editar y re-cifrar
-./scripts/manage_secrets.sh view       # Ver sin guardar
+1. **Ver tu clave completa**:
+   ```bash
+   ./scripts/manage_secrets.sh show-key
+   ```
 
-# Servicios
-./scripts/start.sh                     # Iniciar Vaultwarden
-docker compose logs -f                 # Ver logs
-docker compose down && ./scripts/start.sh  # Reiniciar
+2. **En Bitwarden Cloud** (bitwarden.com, NO tu Vaultwarden):
+   - Crear nueva **Secure Note**
+   - Nombre: `🔐 Vaultwarden Recovery Key`
+   - Contenido: Pegar TODO el contenido que muestra el comando
+   
+   Ejemplo de contenido:
+   ```
+   # Vaultwarden AGE Key - Creada: 2026-01-05
+   # public key: age15yu005zkql3g6wqc4pr3822247wujzmy9atlzjsnq03jk6su797q346qjq
+   AGE-SECRET-KEY-1ABCDEFGHIJKLMNOPQRSTUVWXYZ...
+   ```
 
-# Backup
-./scripts/backup.sh                    # Ejecutar backup manual
-```
+### 🆘 Recuperación de Desastres Completa
+
+Si perdiste el servidor y necesitas recuperar todo:
+
+1. **Recuperar clave desde Bitwarden Cloud**:
+   ```bash
+   mkdir -p ~/.age && chmod 700 ~/.age
+   nano ~/.age/vaultwarden.key  # Pegar desde tu Secure Note
+   chmod 600 ~/.age/vaultwarden.key
+   ```
+
+2. **Clonar y Descifrar**:
+   ```bash
+   git clone https://github.com/tu-usuario/vaultwarden-self-hosted.git
+   cd vaultwarden-self-hosted
+   ./scripts/manage_secrets.sh decrypt 
+   ```
+
+3. **Restaurar Backup**:
+   ```bash
+   # Descargar y descifrar
+   rclone copy gdrive:Backups/Vaultwarden/vw_backup_LAST.json.age /tmp/
+   age -d -i ~/.age/vaultwarden.key -o /tmp/backup.json /tmp/vw_backup_LAST.json.age
+   
+   # Levantar e Importar
+   ./scripts/start.sh
+   # Web Vault -> Ajustes -> Importar -> Bitwarden (json) -> /tmp/backup.json
+   ```
 
 ---
 
 ## 📦 Despliegue en Múltiples Servidores
 
-Si quieres replicar en otro servidor (LXC, VPS, etc.):
+Si quieres replicar en otro servidor (LXC, VPS, etc.).
 
-### Opción A: Misma clave (más simple)
+### Opción A: Transferir clave (SCP)
 
 ```bash
-# Desde el servidor original
 scp ~/.age/vaultwarden.key root@nuevo-servidor:/root/.age/
 ```
 
-### Opción B: Diferentes claves (más seguro)
+### Opción B: Múltiples claves (Más seguro)
+
+1. Generar nueva clave en el servidor nuevo: `./scripts/manage_secrets.sh setup`
+2. Recifrar el `.env` con ambas claves públicas usando `age -r PUB1 -r PUB2`.
+
+---
+
+## 🔧 Comandos Útiles
 
 ```bash
-# En el nuevo servidor, generar su propia clave
-./scripts/manage_secrets.sh setup
+# Gestión
+./scripts/manage_secrets.sh [setup|encrypt|decrypt|edit|view|show-key]
 
-# Obtener clave pública
-NEW_PUB=$(age-keygen -y ~/.age/vaultwarden.key)
+# Servicio
+./scripts/start.sh
+docker compose logs -f
 
-# En el servidor original, re-cifrar para ambas claves
-OLD_PUB=$(age-keygen -y ~/.age/vaultwarden.key)
-age -d -i ~/.age/vaultwarden.key .env.age > /tmp/secrets.env
-age -r "$OLD_PUB" -r "$NEW_PUB" -o .env.age /tmp/secrets.env
-rm /tmp/secrets.env
+# Backup Manual
+./scripts/backup.sh
+```
 
-git commit -am "chore: añadir recipiente para nuevo servidor"
-git push
+---
+
+## 📁 Estructura del Proyecto
+
+```
+vaultwarden/
+├── docker-compose.yml       # Configuración de servicios
+├── .env.example             # Plantilla de variables
+├── .env.age                  # 🔒 Secretos cifrados (Git)
+├── data/                    # 🔒 Datos persistentes (NO Git)
+├── scripts/
+│   ├── install.sh           # Setup automatizado
+│   ├── start.sh             # Launcher
+│   ├── backup.sh            # Script de backup CLI
+│   └── manage_secrets.sh    # Wrapper de AGE
+└── README.md
 ```
 
 ---
@@ -652,50 +547,34 @@ git push
 
 ## 📚 Documentación
 
-| Documento                                                                                           | Descripción             |
-| :-------------------------------------------------------------------------------------------------- | :---------------------- |
-| [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki)                                 | Documentación oficial   |
-| [AGE Encryption](https://age-encryption.org/)                                                       | Cifrado moderno         |
-| [Rclone Docs](https://rclone.org/docs/)                                                             | Sincronización con nube |
-| [Tailscale](https://tailscale.com/kb/)                                                              | VPN mesh                |
-| [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Túneles seguros         |
+| Documento | Descripción |
+| :--- | :--- |
+| [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki) | Documentación oficial |
+| [AGE Encryption](https://age-encryption.org/) | Cifrado moderno |
+| [Rclone Docs](https://rclone.org/docs/) | Sincronización con nube |
+
+---
+
+## ❓ Solución de Problemas Frecuentes
+
+### 1. "Requires HTTPS" / Criptografía falla
+Los navegadores bloquean criptografía en HTTP.
+- **Solución**: Usa Firefox, habilita `chrome://flags/#unsafely-treat-insecure-origin-as-secure` o usa HTTPS (Cloudflare/Tailscale).
+
+### 2. Backup error: "not logged in"
+Revisa `BW_HOST`. Si usas docker local, debe ser `http://localhost:PUERTO`.
 
 ---
 
 ## 🤝 Contribuir
 
 1. Fork del repositorio
-2. Crear rama: `git checkout -b feat/nueva-feature`
-3. Commit: `git commit -m "feat: descripción"`
-4. Push: `git push origin feat/nueva-feature`
-5. Crear Pull Request
+2. `git checkout -b feat/nueva-feature`
+3. `git commit -m "feat: descripción"`
+4. Pull Request
 
 ---
 
-## ❓ Solución de Problemas Frecuentes
- 
- ### 1. "Requires HTTPS" o error de criptografía
- **Síntoma**: Al intentar crear cuenta o loguearte, dice que requiere HTTPS.
- **Causa**: Los navegadores bloquean criptografía en HTTP inseguro.
- **Solución**:
- - **Opción A**: Usa Firefox (permite HTTP local).
- - **Opción B**: Habilita `chrome://flags/#unsafely-treat-insecure-origin-as-secure` en Chrome y añade tu IP (`http://100.x.y.z:8080`).
- - **Opción C**: Usa **Tailscale Search** para obtener un dominio HTTPS (`.ts.net`).
- 
- ### 2. El backup falla con "Error: not logged in"
- **Causa**: El `BW_HOST` en el `.env` no apunta correctamente a tu servidor local.
- **Solución**: Asegúrate de que `BW_HOST=http://localhost:8080` (si usas el puerto 8080) en el archivo `.env`.
- 
- ### 3. No recibo notificaciones de Telegram
- **Solución**:
- - Verifica el `.env`.
- - Prueba enviar un mensaje manual:
-   ```bash
-   curl -s -X POST "https://api.telegram.org/bot<TU_TOKEN>/sendMessage" -d "chat_id=<TU_ID>" -d "text=Test"
-   ```
- 
- ---
- 
- ## 📄 Licencia
- 
- Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
+## 📄 Licencia
+
+Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
