@@ -71,7 +71,7 @@ Vaultwarden incluye **todas las funciones de Bitwarden Premium** sin costo:
 ### Requisitos Previos
 
 - **Servidor Linux** con Docker instalado (Ubuntu, Debian, Fedora, Proxmox LXC, Raspberry Pi, etc.)
-- **Dominio** (opcional, para acceso remoto con HTTPS)
+- **Dominio** (recomendado para HTTPS, pero opcional si usas Tailscale/IP Local)
 - Herramientas: `age`, `rclone`, `bw` (Bitwarden CLI), `curl`
 
 ### 1. Clonar el repositorio
@@ -143,7 +143,13 @@ RCLONE_REMOTE=gdrive:Backups/Vaultwarden
 ./scripts/start.sh
 ```
 
-### 7. Configurar acceso (elige una opción)
+### 7. Configurar acceso
+ 
+ Esta guía cubre tres escenarios principales:
+ 
+ 1. **Con Dominio** (Cloudflare Tunnel) - Recomendado, automático con HTTPS.
+ 2. **Sin Dominio** (Tailscale) - Acceso privado y seguro.
+ 3. **Local** (IP del servidor) - Solo red local.
 
 <details>
 <summary><strong>🔷 Opción A: Cloudflare Tunnel (Recomendado)</strong></summary>
@@ -162,20 +168,51 @@ Sin abrir puertos en tu router. Requiere cuenta en Cloudflare.
 3. Copiar el token del tunnel a `docker-compose.yml`
 
 </details>
-
-<details>
-<summary><strong>🟣 Opción B: Tailscale (Red privada)</strong></summary>
-
-Acceso seguro solo desde tus dispositivos con Tailscale instalado.
-
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up
-```
-
-Acceder desde: `http://100.x.x.x:8080`
-
-</details>
+ 
+ <details>
+ <summary><strong>🟣 Opción B: Sin Dominio (Tailscale / Red Privada)</strong></summary>
+ 
+ Ideal si no quieres comprar un dominio. Accederás usando la VPN de Tailscale o tu IP local.
+ 
+ #### 1. Modificar `docker-compose.yml`
+ Como no usaremos Cloudflare, debemos exponer el puerto manualmente. Edita el archivo y:
+ 1. Descomenta la sección `ports`.
+ 2. Comenta el servicio `cloudflared`.
+ 
+ ```yaml
+ services:
+   vaultwarden:
+     ports:
+       - "8080:80"  # <--- Descomentar esto (Host:Contenedor)
+     # ...
+   
+   # cloudflared:   <--- Comentar o borrar este bloque
+   #   ...
+ ```
+ 
+ #### 2. Reiniciar
+ ```bash
+ ./scripts/start.sh
+ ```
+ 
+ #### 3. Configurar `.env` para backups
+ El script de backup necesita saber dónde encontrar tu Vaultwarden. Al estar en el mismo servidor, usa localhost:
+ 
+ ```bash
+ # En tu archivo .env
+ BW_HOST=http://localhost:8080
+ ```
+ 
+ #### 4. Acceder
+ - Desde el servidor: `http://localhost:8080`
+ - Desde tu PC/Móvil (con Tailscale): `http://100.x.y.z:8080`
+ 
+ > ⚠️ **NOTA SOBRE HTTPS**: Los navegadores modernos (Chrome, Safari) bloquean funciones criptográficas en sitios **HTTP** (no seguros).
+ > - **Solución 1**: Usar Firefox (es más permisivo).
+ > - **Solución 2**: Usar **Tailscale HTTPS** (comando `tailscale cert`) para tener un dominio seguro `.ts.net`.
+ > - **Solución 3**: Las apps móviles y de escritorio de Bitwarden suelen funcionar bien permitiendo conexiones HTTP en sus ajustes.
+ 
+ </details>
 
 <details>
 <summary><strong>🟢 Opción C: Reverse Proxy (Nginx, Traefik, Caddy)</strong></summary>

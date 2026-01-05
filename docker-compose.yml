@@ -17,10 +17,15 @@ services:
     volumes:
       # Persistencia de datos (bóveda, configuración, íconos, etc.)
       - ./data:/data
-    # No exponemos puertos al host, solo accesible via tunnel
+    # No exponemos puertos al host por defecto (solo via tunnel)
+    # Si NO usas Cloudflare Tunnel (ej. Tailscale o IP Local), descomenta esto:
+    # ports:
+    #   - "8080:80"
     expose:
       - "80"
 
+  # ☁️ CLOUDFLARE TUNNEL (Opcional)
+  # Si usas Tailscale/IP Local, puedes eliminar o comentar este servicio
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
