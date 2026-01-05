@@ -172,7 +172,13 @@ Sin abrir puertos en tu router. Requiere cuenta en Cloudflare.
  <details>
  <summary><strong>🟣 Opción B: Sin Dominio (Tailscale / Red Privada)</strong></summary>
  
- Ideal si no quieres comprar un dominio. Accederás usando la VPN de Tailscale o tu IP local.
+ Ideal si no quieres comprar un dominio y quieres acceder desde fuera de casa de forma segura.
+ 
+ #### 0. Instalar Tailscale (si no lo tienes)
+ ```bash
+ curl -fsSL https://tailscale.com/install.sh | sh
+ sudo tailscale up
+ ```
  
  #### 1. Modificar `docker-compose.yml`
  Como no usaremos Cloudflare, debemos exponer el puerto manualmente. Edita el archivo y:
@@ -204,8 +210,9 @@ Sin abrir puertos en tu router. Requiere cuenta en Cloudflare.
  ```
  
  #### 4. Acceder
- - Desde el servidor: `http://localhost:8080`
- - Desde tu PC/Móvil (con Tailscale): `http://100.x.y.z:8080`
+ 1. Obtén tu IP de Tailscale: `tailscale ip -4`
+ 2. Accede desde el navegador: `http://TU_IP_TAILSCALE:8080`
+ 3. Desde el móvil: Instala la app de Tailscale, actívala y usa esa misma URL.
  
  > ⚠️ **NOTA SOBRE HTTPS**: Los navegadores modernos (Chrome, Safari) bloquean funciones criptográficas en sitios **HTTP** (no seguros).
  > - **Solución 1**: Usar Firefox (es más permisivo).
@@ -648,6 +655,30 @@ git push
 
 ---
 
-## 📄 Licencia
-
-Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
+## ❓ Solución de Problemas Frecuentes
+ 
+ ### 1. "Requires HTTPS" o error de criptografía
+ **Síntoma**: Al intentar crear cuenta o loguearte, dice que requiere HTTPS.
+ **Causa**: Los navegadores bloquean criptografía en HTTP inseguro.
+ **Solución**:
+ - **Opción A**: Usa Firefox (permite HTTP local).
+ - **Opción B**: Habilita `chrome://flags/#unsafely-treat-insecure-origin-as-secure` en Chrome y añade tu IP (`http://100.x.y.z:8080`).
+ - **Opción C**: Usa **Tailscale Search** para obtener un dominio HTTPS (`.ts.net`).
+ 
+ ### 2. El backup falla con "Error: not logged in"
+ **Causa**: El `BW_HOST` en el `.env` no apunta correctamente a tu servidor local.
+ **Solución**: Asegúrate de que `BW_HOST=http://localhost:8080` (si usas el puerto 8080) en el archivo `.env`.
+ 
+ ### 3. No recibo notificaciones de Telegram
+ **Solución**:
+ - Verifica el `.env`.
+ - Prueba enviar un mensaje manual:
+   ```bash
+   curl -s -X POST "https://api.telegram.org/bot<TU_TOKEN>/sendMessage" -d "chat_id=<TU_ID>" -d "text=Test"
+   ```
+ 
+ ---
+ 
+ ## 📄 Licencia
+ 
+ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
