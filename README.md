@@ -519,6 +519,23 @@ vaultwarden/
 └── README.md
 ```
 
+## 💾 Gestión de Datos y Persistencia
+
+Toda la información de tu instancia se guarda estrictamente en el directorio `./data`. Este volumen está montado en `docker-compose.yml` y persiste entre reinicios.
+
+**Contenido de `./data`:**
+- `db.sqlite3`: La base de datos completa (usuarios, cifrado, organizaciones).
+- `attachments/`: Archivos adjuntos subidos a las bóvedas.
+- `icon_cache/`: Caché de iconos de sitios web.
+- `config.json`: Configuraciones específicas del servidor.
+
+### ⚠️ Nota sobre los Backups
+El script de backup automático (`./scripts/backup.sh`) realiza una **exportación de la bóveda (JSON)** usando Bitwarden CLI.
+- ✅ **Incluye**: Contraseñas, notas, tarjetas, identidades.
+- ❌ **No incluye**: Archivos adjuntos (Attachments).
+
+**Si usas archivos adjuntos**, te recomendamos respaldar periódicamente la carpeta `./data` completa o sincronizarla con `rclone`.
+
 ---
 
 ## 🔧 Comandos Útiles
