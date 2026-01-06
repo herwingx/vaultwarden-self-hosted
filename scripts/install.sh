@@ -136,11 +136,26 @@ setup_cron() {
         fi
     fi
     
-    # Escribir crontab
+    # Validar formato básico de cron (5 campos)
+    # Si el usuario solo escribió "27 9", asumir que son minutos y horas: "27 9 * * *"
+    if [[ "$schedule" =~ ^[0-9]+[[:space:]]+[0-9]+$ ]]; then
+        schedule="$schedule * * *"
+        log_info "Asumiendo formato diario: $schedule"
+    fi
+
+    local CRON_ENTRY="$schedule $CRON_CMD"
+
+    # Escribir crontab y verificar error
     if [[ -n "$CURRENT_CRON" ]]; then
-        echo -e "${CURRENT_CRON}\n${CRON_ENTRY}" | crontab -
+        if ! echo -e "${CURRENT_CRON}\n${CRON_ENTRY}" | crontab -; then
+            log_error "Falló la instalación del cron. Verifica el formato: '$schedule'"
+            return 1
+        fi
     else
-        echo "$CRON_ENTRY" | crontab -
+        if ! echo "$CRON_ENTRY" | crontab -; then
+            log_error "Falló la instalación del cron. Verifica el formato: '$schedule'"
+            return 1
+        fi
     fi
     
     log_success "Cron configurado: $schedule"
