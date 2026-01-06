@@ -37,7 +37,7 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 NVM_DIRS=(
     "$HOME/.nvm/versions/node"           # Usuario normal
     "/root/.nvm/versions/node"           # Root
-    "/home/$USER/.nvm/versions/node"     # Alternativa usuario
+    "/home/${USER:-}/.nvm/versions/node"     # Alternativa usuario
 )
 
 for NVM_DIR in "${NVM_DIRS[@]}"; do
