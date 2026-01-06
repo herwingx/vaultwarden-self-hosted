@@ -17,7 +17,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BACKUP_SCRIPT="$SCRIPT_DIR/backup.sh"
-CRON_SCHEDULE="0 3 * * *"  # 3:00 AM diario
+CRON_SCHEDULE="${2:-0 3 * * *}"  # Default: 3:00 AM diario
 
 # Ubicaciones de clave AGE
 AGE_KEY_LOCATIONS=(
@@ -101,7 +101,8 @@ check_age_key() {
 
 # --- CONFIGURAR CRON ---
 setup_cron() {
-    log_info "Configurando cron para backups automáticos..."
+    local schedule="${1:-$CRON_SCHEDULE}"
+    log_info "Configurando cron para backups automáticos ($schedule)..."
     
     # Verificar que existe .env.age
     if [[ ! -f "$PROJECT_DIR/.env.age" ]]; then
@@ -119,7 +120,7 @@ setup_cron() {
     # Con identity keys NO necesitamos passphrase
     # El script backup.sh encontrará la clave automáticamente
     local CRON_CMD="$BACKUP_SCRIPT >> /var/log/vaultwarden_backup.log 2>&1"
-    local CRON_ENTRY="$CRON_SCHEDULE $CRON_CMD"
+    local CRON_ENTRY="$schedule $CRON_CMD"
     
     # Obtener crontab actual (sin la entrada de backup si existe)
     local CURRENT_CRON=""
@@ -142,8 +143,8 @@ setup_cron() {
         echo "$CRON_ENTRY" | crontab -
     fi
     
-    log_success "Cron configurado: $CRON_SCHEDULE"
-    echo "  Backup diario a las 3:00 AM"
+    log_success "Cron configurado: $schedule"
+    echo "  Backup programado para: $schedule"
     echo "  Log: /var/log/vaultwarden_backup.log"
 }
 
@@ -269,7 +270,9 @@ full_install() {
     read -p "¿Configurar backup automático diario? [S/n]: " -r response
     response=${response:-S}
     if [[ "$response" =~ ^[Ss]$ ]]; then
-        setup_cron || true
+        read -p "Ingresa el horario cron (Default: 0 3 * * *): " -r user_schedule
+        user_schedule=${user_schedule:-"0 3 * * *"}
+        setup_cron "$user_schedule" || true
     fi
     
     show_status
@@ -292,7 +295,7 @@ show_help() {
     echo "Opciones:"
     echo "  (sin args)   Instalación completa"
     echo "  --deps       Solo verificar dependencias"
-    echo "  --cron       Solo configurar cron"
+    echo "  --cron [schedule] Solo configurar cron (opcional: '0 5 * * *')"
     echo "  --decrypt    Descifrar .env.age a .env"
     echo "  --status     Mostrar estado"
     echo ""
@@ -304,7 +307,7 @@ case "${1:-}" in
         check_dependencies
         ;;
     --cron)
-        setup_cron
+        setup_cron "${2:-$CRON_SCHEDULE}"
         ;;
     --decrypt)
         decrypt_env
