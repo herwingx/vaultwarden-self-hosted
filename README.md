@@ -210,7 +210,7 @@ cd /opt/vaultwarden
 El script `install.sh` te guiará interactivamente para:
 1. ✅ Verificar e instalar dependencias (age, rclone, docker).
 2. 🔑 Generar tu par de claves AGE (si no existen).
-3. ⏰ Configurar el **Cron de Backups** automáticamente.
+3. ⏰ Configurar el **Cron de Backups** automáticamente (hora configurable).
 
 ### 2. Configurar Secretos
 
@@ -481,6 +481,8 @@ Diferencias clave entre los scripts incluidos para evitar confusiones:
 ```bash
 # Instalación / Reparación
 ./scripts/install.sh
+# O solo configurar el backup a una hora específica:
+./scripts/install.sh --cron "0 5 * * *"
 
 # Operación Diaria
 ./scripts/start.sh                     # Iniciar
