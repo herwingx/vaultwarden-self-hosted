@@ -1,581 +1,201 @@
-# 🔐 Vaultwarden Self-Hosted
+# 🚀 Vaultwarden Self-Hosted: La Guía Definitiva
 
-> **Gestor de contraseñas auto-hospedado** — Alternativa ligera y compatible con Bitwarden, con backups cifrados automáticos a la nube.
+> **Protege tu soberanía digital** — La solución definitiva para auto-hospedar tu gestor de contraseñas con backups automáticos, cifrados y listos para producción.
 
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Vaultwarden](https://img.shields.io/badge/Vaultwarden-175DDC?style=flat-square&logo=bitwarden&logoColor=white)](https://github.com/dani-garcia/vaultwarden)
-[![AGE](https://img.shields.io/badge/AGE_Encryption-2D3748?style=flat-square&logo=gnuprivacyguard&logoColor=white)](https://age-encryption.org/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/herwingx/vaultwarden-proxmox/main/preview.png" alt="Vaultwarden Preview" width="800" style="border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"/>
+</p>
 
----
-
-## ✨ Características del Proyecto
-
-| Característica                | Descripción                                              |
-| :---------------------------- | :------------------------------------------------------- |
-| 🐳 **Docker Compose**          | Despliegue simple con un solo comando                    |
-| 🌐 **Acceso Flexible**         | Cloudflare Tunnel, Tailscale, Reverse Proxy o IP local   |
-| 🔐 **Cifrado AGE**             | Secretos y backups protegidos con claves criptográficas  |
-| ☁️ **Backup a la Nube**        | Respaldos automáticos con rclone (Drive, S3, etc.)       |
-| 📱 **Notificaciones Telegram** | Alertas de estado en cada backup                         |
-| ⏰ **Cron 100% Automático**    | Backups diarios sin intervención ni terminal             |
-| 🧹 **Retención Inteligente**   | Limpieza automática de backups antiguos                  |
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Vaultwarden](https://img.shields.io/badge/Vaultwarden-175DDC?style=for-the-badge&logo=bitwarden&logoColor=white)](https://github.com/dani-garcia/vaultwarden)
+[![AGE](https://img.shields.io/badge/AGE_Encryption-2D3748?style=for-the-badge&logo=gnuprivacyguard&logoColor=white)](https://age-encryption.org/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 ---
 
-## 💎 Funciones Premium GRATIS
-
-Vaultwarden desbloquea **todas las funciones que Bitwarden cobra** en su plan Premium o de Organización.
-
-| Función Premium | Bitwarden ($$) | Vaultwarden (Gratis) |
-| :--- | :---: | :---: |
-| 🔐 **TOTP Authenticator** | $10/año | ✅ Incluido |
-| 🛡️ **2FA Físico (YubiKey)** | $10/año | ✅ Incluido |
-| 📊 **Reportes de Salud** | $10/año | ✅ Incluido |
-| 📎 **Adjuntos Cifrados** | 1GB (Global) | 💾 Ilimitado (Tu Disco) |
-| 🆘 **Acceso de Emergencia** | $10/año | ✅ Incluido |
-| 🏢 **Organizaciones** | $40/año | ♾️ Ilimitadas |
-
-### 📋 Detalle de Beneficios
-
-1. **Autenticador Integrado (TOTP)**
-   Genera códigos de verificación de dos pasos (6 dígitos) directamente en la app. En la versión gratuita oficial solo puedes guardar la semilla, pero no generar códigos.
-
-2. **2FA Avanzada (Hardware)**
-   Soporte completo para llaves físicas de seguridad (**YubiKey, FIDO2/WebAuthn**) y Duo. Bitwarden Free solo permite correo o apps básicas.
-
-3. **Reportes de Salud (Vault Health)**
-   Análisis de seguridad que detecta:
-   - Contraseñas expuestas en brechas de datos (Have I Been Pwned).
-   - Contraseñas reutilizadas o débiles.
-   - Sitios web sin HTTPS.
-
-4. **Archivos Adjuntos y "Send"**
-   - **Adjuntos**: Sube documentos e imágenes cifrados a tus ítems. Límite definido solo por el espacio de tu servidor.
-   - **Send**: Comparte archivos cifrados mediante enlaces temporales (Bitwarden Free solo permite texto).
-
-5. **Organizaciones Ilimitadas**
-   Crea grupos para compartir contraseñas con familiares, amigos o equipos de trabajo sin el límite de 2 usuarios/colecciones.
-
-6. **Acceso de Emergencia**
-   Designa contactos de confianza que pueden solicitar acceso a tu bóveda tras un tiempo de espera si tú no puedes hacerlo.
-
-> 💡 **Nota (2026)**: Para obtener estas ventajas, el compromiso es **autoalojar** (self-host) el servicio en tu propio hardware (VPS, Raspberry Pi, NAS) y encargarte de la seguridad y backups, tal como facilita este proyecto.
+## 📑 Tabla de Contenidos
+- [✨ Características](#-características)
+- [💎 Beneficios Premium](#-beneficios-premium)
+- [🛠️ Requisitos Previos (Paso a Paso)](#️-requisitos-previos-paso-a-paso)
+- [🚀 Instalación Rápida](#-instalación-rápida)
+- [🌐 Opciones de Despliegue](#-opciones-de-despliegue)
+- [🔐 Gestión de Secretos (AGE)](#-gestión-de-secretos-age)
+- [💾 Backups y Recuperación](#-backups-y-recuperación)
+- [📜 Referencia de Scripts](#-referencia-de-scripts)
 
 ---
 
-## 🏆 ¿Por qué Vaultwarden?
+## ✨ Características
 
-### Ventajas vs Bitwarden Cloud
-
-| Aspecto              | Bitwarden Cloud     | Vaultwarden Self-Hosted      |
-| :------------------- | :------------------ | :---------------------------- |
-| **Costo**            | $10-40/año          | 🆓 Gratis                      |
-| **Datos**            | En servidores USA   | 🏠 En TU servidor              |
-| **Privacidad**       | Confías en ellos    | 🔐 100% tuyo                   |
-| **Funciones Premium**| Requiere pago       | ✅ Todas incluidas             |
-| **Límite usuarios**  | Según plan          | ♾️ Ilimitados                  |
-| **Almacenamiento**   | 1GB adjuntos        | 💾 Sin límite                  |
-| **Personalización**  | Limitada            | 🔧 Total control               |
-| **Disponibilidad**   | Depende de ellos    | 🖥️ Tú controlas               |
-
-### Características de Vaultwarden
-
-- 🦀 **Escrito en Rust** - Extremadamente rápido y eficiente
-- 💾 **Bajo consumo** - ~10MB RAM, perfecto para Raspberry Pi
-- 🔄 **100% Compatible** - Funciona con todas las apps de Bitwarden
-- 🌐 **API completa** - Web Vault, CLI, extensiones, apps móviles
-- 🔓 **Código abierto** - Auditable y transparente
-- 🐳 **Docker ready** - Despliegue en minutos
+| Funcionalidad | Descripción |
+| :--- | :--- |
+| 🐳 **Docker Native** | Despliegue orquestado con Docker Compose. |
+| 🔐 **Cifrado Militar** | Secretos y backups protegidos con **AGE** (Identity Files). |
+| ☁️ **Multi-Cloud Backup** | Integración con **rclone** (Drive, S3, Dropbox, etc.). |
+| 📱 **Notificaciones** | Alertas instantáneas vía Telegram Bot API. |
+| ⏰ **Zero-Touch Ops** | Cronjob inteligente para backups sin intervención del usuario. |
+| 🌐 **Acceso Universal** | Guías para Cloudflare Tunnel, Tailscale y Proxy Inverso. |
 
 ---
 
-## 🔐 Sistema de Cifrado (AGE)
+## 💎 Beneficios Premium GRATIS
 
-Este proyecto usa **AGE (Actually Good Encryption)** con **identity keys** (claves pública/privada) en lugar de passphrase.
+Vaultwarden habilita **todas las funciones premium de Bitwarden** sin costo alguno:
 
-### 📝 TL;DR - Resumen rápido
-
-```
-1. Generas UNA clave    →  ~/.age/vaultwarden.key
-2. La guardas en Bitwarden Cloud (¡CRÍTICO!)
-3. El backup usa esa clave automáticamente
-4. Si pierdes el servidor, recuperas la clave de Bitwarden
-5. ¡Listo! Puedes descifrar todos tus backups
-```
-
-### Flujo de cifrado
-
-```mermaid
-graph LR
-    ENV[".env"] -- Clave Pública --> ENC[".env.age"]
-    ENC -- Clave Privada --> ENV
-    
-    style ENV fill:#E2E8F0,stroke:#333
-    style ENC fill:#2D3748,stroke:#fff,color:#fff
-```
-
-### 🔑 Ciclo de vida de las claves
-
-```mermaid
-graph TD
-    subgraph Local ["💻 Tu Servidor"]
-        Step1["1. ./manage_secrets.sh setup"] --> Key["🔑 ~/.age/vaultwarden.key"]
-        Key --> Encrypt["2. Cifrar Backups"]
-        Key --> Decrypt["3. Descifrar / Restaurar"]
-    end
-
-    subgraph Cloud ["☁️ Nube Segura"]
-        BW["🔐 Bitwarden Cloud<br/>(Secure Note)"]
-    end
-
-    Key ==>|⚠️ RESPALDO MANUAL CRÍTICO| BW
-    BW -.->|Recuperación de Desastres| Local
-
-    style Key fill:#F59E0B,stroke:#000,color:#000
-    style BW fill:#175DDC,color:#fff
-```
-
-### ¿Por qué identity keys?
-
-| Método     | Modo Interactivo | Modo Cron | Recuperación       |
-| :--------- | :--------------- | :-------- | :----------------- |
-| Passphrase | ✅                | ❌ Falla   | ✅ Fácil            |
-| **Identity Key** | ✅          | ✅ Funciona | ✅ Respaldar clave |
+1. 🔐 **TOTP Interno**: Genera códigos de 2FA directamente en la app.
+2. 🛡️ **Hardware Security**: Soporte para YubiKey, FIDO2 y WebAuthn.
+3. 🏢 **Organizaciones Ilimitadas**: Comparte passwords de forma segura con familia o equipo.
+4. 📊 **Reportes de Auditoría**: Detecta leaks de contraseñas y debilidades.
+5. 📎 **Adjuntos Cifrados**: Sube documentos directamente a tu bóveda.
 
 ---
 
-## 🏗️ Arquitectura
+## 🛠️ Requisitos Previos (Paso a Paso)
 
-```mermaid
-graph TD
-    subgraph Internet["🌐 Internet"]
-        Client["📱 Clientes<br/>Web / Apps / CLI"]
-    end
+Antes de clonar, asegúrate de tener las herramientas base instaladas. Elige tu distribución:
 
-    subgraph Access["🔒 Capa de Acceso"]
-        CF["☁️ Cloudflare Tunnel"]
-        TS["🟣 Tailscale VPN"]
-        RP["🔀 Reverse Proxy"]
-    end
-
-    subgraph Server["🖥️ Tu Servidor Linux"]
-        subgraph Docker["🐳 Docker"]
-            VW["🔐 Vaultwarden<br/>:80"]
-            DB[("💾 SQLite<br/>./data")]
-        end
-        
-        subgraph Backup["⏰ Sistema de Backup"]
-            BS["📜 backup.sh"]
-            AGE["🔒 AGE Keys"]
-            RC["☁️ rclone"]
-        end
-        
-        KEY["🔑 ~/.age/vaultwarden.key"]
-    end
-
-    subgraph Cloud["☁️ Almacenamiento"]
-        GD["📁 Google Drive"]
-        BW["🔐 Bitwarden Cloud<br/>(Respaldo de clave)"]
-    end
-
-    Client --> CF & TS & RP
-    CF & TS & RP --> VW
-    VW <--> DB
-    BS --> VW
-    BS --> AGE --> RC
-    KEY --> AGE
-    RC --> GD
-    KEY -.->|Respaldo| BW
-    
-    style VW fill:#175DDC,color:#fff
-    style AGE fill:#2D3748,color:#fff
-    style KEY fill:#F59E0B,color:#000
-```
-
----
-
-## 🚀 Inicio Rápido (Automático)
-
-Este proyecto incluye un **asistente de instalación** que maneja dependencias, claves y configuración de backups automáticamente.
-
-### 1. Clonar y Ejecutar Asistente
-
+### 1. Docker y Docker Compose
 ```bash
-git clone https://github.com/herwingx/vaultwarden-self-hosted.git /opt/vaultwarden
+# Ubuntu / Debian
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Verificar
+docker compose version
+```
+
+### 2. Herramientas de Cifrado y Backup
+```bash
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y age rclone curl git
+
+# Fedora / RHEL
+sudo dnf install -y age rclone curl git
+```
+
+### 3. Bitwarden CLI (Para Backups)
+El script de backup usa el CLI oficial. Requiere Node.js:
+```bash
+# Instalar BW CLI
+npm install -g @bitwarden/cli
+
+# Verificar
+bw --version
+```
+
+---
+
+## 🚀 Instalación Rápida
+
+### 1. Clonar el repositorio
+Recomendamos usar una ruta estándar como `/opt/vaultwarden`:
+```bash
+sudo git clone https://github.com/TU_USUARIO/vaultwarden-proxmox.git /opt/vaultwarden
 cd /opt/vaultwarden
+sudo chown -R $USER:$USER .
+```
+
+### 2. Ejecutar Asistente de Configuración
+Nuestro script inteligente configurará las claves y el cron automáticamente:
+```bash
+chmod +x scripts/*.sh
 ./scripts/install.sh
 ```
 
-El script `install.sh` te guiará interactivamente para:
-1. ✅ Verificar e instalar dependencias (age, rclone, docker).
-2. 🔑 Generar tu par de claves AGE (si no existen).
-3. ⏰ Configurar el **Cron de Backups** automáticamente (hora configurable).
-
-### 2. Configurar Secretos
-
-Una vez terminado el asistente, configura tus variables:
-
+### 3. Configurar Entorno
 ```bash
-# El asistente ya habrá descifrado el .env si existiera, o puedes crear uno nuevo:
-cp .env.example .env
+# El asistente creará un .env básico, edítalo:
 nano .env
 ```
 
-Variables principales a editar:
-```env
-BW_HOST=https://vault.tudominio.com
-BW_CLIENTID=...
-BW_CLIENTSECRET=...
-BW_PASSWORD=...
-RCLONE_REMOTE=gdrive:Backups/Vaultwarden
-```
-
-### 3. Cifrar y Arrancar
-
-> 🛡️ **Seguridad**: `start.sh` es un launcher seguro que descifra tus secretos en memoria, levanta el contenedor y **borra el archivo .env** del disco inmediatamente.
-
-```bash
-# 1. Cifrar tus cambios (borra el .env de texto plano)
-./scripts/manage_secrets.sh encrypt
-
-# 2. Iniciar servicio de forma segura
-./scripts/start.sh
-```
-
-### 4. Configurar Acceso (Dominios)
- 
- Esta guía cubre tres escenarios principales:
- 
- 1. **Con Dominio** (Cloudflare Tunnel) - Recomendado, automático con HTTPS.
- 2. **Sin Dominio** (Tailscale) - Acceso privado y seguro.
- 3. **Local** (IP del servidor) - Solo red local.
-
-<details>
-<summary><strong>🔷 Opción A: Cloudflare Tunnel (Recomendado)</strong></summary>
-
-Sin abrir puertos en tu router. Requiere cuenta en Cloudflare.
-
-1. En **Cloudflare Zero Trust** → **Tunnels** → crear tunnel
-2. Añadir **Public Hostname**:
-
-| Campo     | Valor                   |
-| :-------- | :---------------------- |
-| Subdomain | `vault`                 |
-| Domain    | `tudominio.com`         |
-| Service   | `http://vaultwarden:80` |
-
-3. Copiar el token del tunnel a `docker-compose.yml`
-
-</details>
- 
- <details>
- <summary><strong>🟣 Opción B: Sin Dominio (Tailscale / Red Privada)</strong></summary>
- 
- Ideal si no quieres comprar un dominio y quieres acceder desde fuera de casa de forma segura.
- 
- #### 0. Instalar Tailscale (si no lo tienes)
- ```bash
- curl -fsSL https://tailscale.com/install.sh | sh
- sudo tailscale up
- ```
- 
- #### 1. Modificar `docker-compose.yml`
- Como no usaremos Cloudflare, debemos exponer el puerto manualmente. Edita el archivo y:
- 1. Descomenta la sección `ports`.
- 2. Comenta el servicio `cloudflared`.
- 
- ```yaml
- services:
-   vaultwarden:
-     ports:
-       - "8080:80"  # <--- Descomentar esto (Host:Contenedor)
-     # ...
-   
-   # cloudflared:   <--- Comentar o borrar este bloque
-   #   ...
- ```
- 
- #### 2. Reiniciar
- ```bash
- ./scripts/start.sh
- ```
- 
- #### 3. Configurar `.env` para backups
- El script de backup necesita saber dónde encontrar tu Vaultwarden. Al estar en el mismo servidor, usa localhost:
- 
- ```bash
- # En tu archivo .env
- BW_HOST=http://localhost:8080
- ```
- 
- #### 4. Acceder
- 1. Obtén tu IP de Tailscale: `tailscale ip -4`
- 2. Accede desde el navegador: `http://TU_IP_TAILSCALE:8080`
- 3. Desde el móvil: Instala la app de Tailscale, actívala y usa esa misma URL.
- 
- > ⚠️ **NOTA SOBRE HTTPS**: Los navegadores modernos (Chrome, Safari) bloquean funciones criptográficas en sitios **HTTP** (no seguros).
- > - **Solución 1**: Usar Firefox (es más permisivo).
- > - **Solución 2**: Usar **Tailscale HTTPS** (comando `tailscale cert`) para tener un dominio seguro `.ts.net`.
- > - **Solución 3**: Las apps móviles y de escritorio de Bitwarden suelen funcionar bien permitiendo conexiones HTTP en sus ajustes.
- 
- </details>
-
-<details>
-<summary><strong>🟢 Opción C: Reverse Proxy (Nginx, Traefik, Caddy)</strong></summary>
-
-Si ya tienes un reverse proxy configurado, apunta a `localhost:8080`.
-
-</details>
-
-### 5. Crear cuenta y cerrar registros (CRÍTICO)
- 
- 1. Accede a tu Vaultwarden y crea tu cuenta de administrador.
- 2. Una vez creada, **deshabilita nuevos registros** editando tus secretos:
- 
- ```bash
- # 1. Editar secretos
- ./scripts/manage_secrets.sh edit
- ```
- 
- ```env
- # Cambiar a false dentro del editor
- SIGNUPS_ALLOWED=false
- ```
- 
- 3. Reiniciar para aplicar:
- ```bash
- docker compose up -d
- ```
- 
-### 6. Configurar Backups
-
-Si usaste `./scripts/install.sh`, el cron ya debería estar configurado. Si no, o si quieres verificar:
-
-```bash
-# Verificar cron actual
-crontab -l
-```
-
-<details>
-<summary><strong>Configuración Manual del Cron</strong></summary>
-
-```bash
-crontab -e
-```
-Añadir:
-```cron
-0 3 * * * /opt/vaultwarden/scripts/backup.sh >> /var/log/vaultwarden_backup.log 2>&1
-```
-</details>
-
-> ✅ **¡Listo!** Vaultwarden está corriendo con backups automáticos cifrados.
+| Variable | Descripción | Ejemplo |
+| :--- | :--- | :--- |
+| `BW_HOST` | URL donde estará tu Vault | `https://vault.midominio.com` |
+| `BW_PASSWORD` | Password de tu cuenta de Vault | `UnaPassMuyFuerte` |
+| `RCLONE_REMOTE` | Destino de rclone | `gdrive:/Backups/Vault` |
+| `TELEGRAM_TOKEN` | Token de tu bot | `123456:ABC-DEF...` |
 
 ---
 
-## 💾 Gestión de Datos y Persistencia
+## 🌐 Opciones de Despliegue
 
-Toda la información de tu instancia se guarda estrictamente en el directorio `./data`. Este volumen está montado en `docker-compose.yml` y persiste entre reinicios.
+Elige la que mejor se adapte a tu infraestructura:
 
-**Contenido de `./data`:**
-- `db.sqlite3`: La base de datos completa (usuarios, cifrado, organizaciones).
-- `attachments/`: Archivos adjuntos subidos a las bóvedas.
-- `icon_cache/`: Caché de iconos de sitios web.
-- `config.json`: Configuraciones específicas del servidor.
+| Opción | Nivel | Pros | Contras |
+| :--- | :---: | :--- | :--- |
+| **Cloudflare Tunnel** | ⭐⭐⭐ | Sin abrir puertos, SSL auto, super seguro. | Requiere dominio propio. |
+| **Tailscale** | ⭐⭐ | Red privada VPN, muy fácil. | HTTPS manual/complejo. |
+| **Directo / LProxy** | ⭐ | Control total, hosting local. | Debes abrir puertos (80/443). |
 
-### ⚠️ Nota sobre los Backups
-El script de backup automático (`./scripts/backup.sh`) realiza una **exportación de la bóveda (JSON)** usando Bitwarden CLI.
-- ✅ **Incluye**: Contraseñas, notas, tarjetas, identidades.
-- ❌ **No incluye**: Archivos adjuntos (Attachments).
+### 🔷 Opción A: Cloudflare Tunnel (Recomendada)
+1. Ve a [Cloudflare Zero Trust](https://one.dash.cloudflare.com/).
+2. Networks -> Tunnels -> Create a Tunnel.
+3. Copia el **Tunnel Token** en tu `docker-compose.yml`.
+4. Configura el hostname: `vault.tudominio.com` -> `http://vaultwarden:80`.
 
-**Si usas archivos adjuntos**, te recomendamos respaldar periódicamente la carpeta `./data` completa o sincronizarla con `rclone`.
-
----
-
-## 🔄 Respaldo y Recuperación de Clave
-
-> ⚠️ **CRÍTICO**: Sin la clave privada, tus backups son **irrecuperables**. Guárdala AHORA.
-
-### 📋 Respaldar clave en Bitwarden Cloud
-
-1. **Ver tu clave completa**:
-   ```bash
-   ./scripts/manage_secrets.sh show-key
-   ```
-
-2. **En Bitwarden Cloud** (bitwarden.com, NO tu Vaultwarden):
-   - Crear nueva **Secure Note**
-   - Nombre: `🔐 Vaultwarden Recovery Key`
-   - Contenido: Pegar TODO el contenido que muestra el comando
-   
-   Ejemplo de contenido:
-   ```
-   # Vaultwarden AGE Key - Creada: 2026-01-05
-   # public key: age15yu005zkql3g6wqc4pr3822247wujzmy9atlzjsnq03jk6su797q346qjq
-   AGE-SECRET-KEY-1ABCDEFGHIJKLMNOPQRSTUVWXYZ...
-   ```
-
-### 🆘 Recuperación de Desastres Completa
-
-Si perdiste el servidor y necesitas recuperar todo:
-
-1. **Recuperar clave desde Bitwarden Cloud**:
-   ```bash
-   mkdir -p ~/.age && chmod 700 ~/.age
-   nano ~/.age/vaultwarden.key  # Pegar desde tu Secure Note
-   chmod 600 ~/.age/vaultwarden.key
-   ```
-
-2. **Clonar y Descifrar**:
-   ```bash
-   git clone https://github.com/tu-usuario/vaultwarden-self-hosted.git
-   cd vaultwarden-self-hosted
-   ./scripts/manage_secrets.sh decrypt 
-   ```
-
-3. **Restaurar Backup**:
-   ```bash
-   # Descargar y descifrar
-   rclone copy gdrive:Backups/Vaultwarden/vw_backup_LAST.json.age /tmp/
-   age -d -i ~/.age/vaultwarden.key -o /tmp/backup.json /tmp/vw_backup_LAST.json.age
-   
-   # Levantar e Importar
-   ./scripts/start.sh
-   # Web Vault -> Ajustes -> Importar -> Bitwarden (json) -> /tmp/backup.json
-   ```
+### 🟣 Opción B: Tailscale
+1. Instala Tailscale: `curl -fsSL https://tailscale.com/install.sh | sh`.
+2. Habilita HTTPS en el panel de Tailscale.
+3. El acceso será vía `http://nombre-servidor:8080`.
 
 ---
 
-## 📦 Despliegue en Múltiples Servidores
+## 🔐 Gestión de Secretos (AGE)
 
-Si quieres replicar en otro servidor (LXC, VPS, etc.).
+Este proyecto no guarda passwords en texto plano. Usamos `.env.age` el cual está cifrado.
 
-### Opción A: Transferir clave (SCP)
+### Flujo de Trabajo
+*   **Editar**: `./scripts/manage_secrets.sh edit` (Abre un editor temporal y re-cifra al salir).
+*   **Ver**: `./scripts/manage_secrets.sh view`.
+*   **Backup de Clave**: Ejecuta `./scripts/manage_secrets.sh show-key` y guarda el resultado en un gestor externo (Ej: Bitwarden Cloud personal). **SIN ESTA CLAVE NO PODRÁS RECUPERAR TUS BACKUPS.**
 
-```bash
-scp ~/.age/vaultwarden.key root@nuevo-servidor:/root/.age/
-```
+---
 
-### Opción B: Múltiples claves (Más seguro)
+## 💾 Backups y Recuperación
 
-1. Generar nueva clave en el servidor nuevo: `./scripts/manage_secrets.sh setup`
-2. Recifrar el `.env` con ambas claves públicas usando `age -r PUB1 -r PUB2`.
+### El Script de Backup (`backup.sh`)
+*   Ejecuta `bw export` de forma aislada.
+*   Cifra el JSON resultante con tu clave pública AGE.
+*   Sube el archivo a la nube configurada en Rclone.
+*   Envía notificación a Telegram.
+
+### Recuperación tras desastre
+Si tu servidor muere, sigue estos pasos en uno nuevo:
+1. Instala dependencias (`age`, `rclone`).
+2. Restaura tu clave privada en `~/.age/vaultwarden.key`.
+3. Descarga el backup: `rclone copy gdrive:Backup/Vault/vw_backup_... .`.
+4. Descifra: `age -d -i ~/.age/vaultwarden.key -o vault.json vw_backup_...age`.
+5. Importa el JSON en tu nueva instancia.
 
 ---
 
 ## 📜 Referencia de Scripts
 
-Diferencias clave entre los scripts incluidos para evitar confusiones:
-
-| Script | Propósito | ¿Cuándo usarlo? |
+| Script | Acción | UX |
 | :--- | :--- | :--- |
-| **`install.sh`** | **Setup Inicial**. Instala dependencias, genera claves y configura el Cron. | Solo la primera vez o para arreglar dependencias. |
-| **`start.sh`** | **Launcher Seguro**. Descifra secretos temporalmente, lanza Docker y limpia. | Siempre para iniciar/reiniciar el servicio. |
-| **`manage_secrets.sh`** | **Gestión de Cifrado**. Wrapper de AGE para cifrar/descifrar `.env`. | Cuando edites configuración. |
-| **`backup.sh`** | **Lógica de Backup**. Exporta, cifra y sube a la nube. | Lo ejecuta el Cron automáticamente (o tú manualmente). |
+| `install.sh` | Configuración inicial | Asistente interactivo. |
+| `start.sh` | Lanzador seguro | Levanta Docker y borra rastro de secretos. |
+| `backup.sh` | Ejecuta backup | Pantalla de estado y logs detallados. |
+| `manage_secrets.sh`| Toolset de AGE | Manejo completo de llaves y cifrado. |
 
 ---
 
-## 🔧 Comandos Útiles
+## 🤝 Contribuciones y Open Source
 
-```bash
-# Instalación / Reparación
-./scripts/install.sh
-# O solo configurar el backup a una hora específica:
-./scripts/install.sh --cron "0 5 * * *"
-
-# Operación Diaria
-./scripts/start.sh                     # Iniciar
-docker compose down                    # Detener
-
-# Gestión de Secretos
-./scripts/manage_secrets.sh edit       # Editar de forma segura (descifra -> edita -> cifra)
-./scripts/manage_secrets.sh show-key   # Ver clave privada (para respaldo)
-
-# Backups
-./scripts/backup.sh                    # Ejecutar backup manual ahora
-tail -f /var/log/vaultwarden_backup.log # Ver logs de backup
-```
+Este proyecto es 100% Open Source bajo licencia MIT. Si encuentras un bug o tienes una mejora:
+1. Haz un **Fork**.
+2. Crea una rama `feat/tu-mejora`.
+3. Envía un **Pull Request**.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 🛡️ FAQ
 
-```
-vaultwarden/
-├── docker-compose.yml       # Configuración de servicios
-├── .env.example             # Plantilla de variables
-├── .env.age                  # 🔒 Secretos cifrados (Git)
-├── data/                    # 🔒 Datos persistentes (NO Git)
-├── scripts/
-│   ├── install.sh           # Setup automatizado
-│   ├── start.sh             # Launcher
-│   ├── backup.sh            # Script de backup CLI
-│   └── manage_secrets.sh    # Wrapper de AGE
-└── README.md
-```
+**¿Es seguro guardar el backup en Google Drive?**
+Sí, el backup se cifra localmente con **AGE** antes de salir del servidor. Ni Google ni nadie sin tu clave privada puede ver el contenido.
+
+**¿Puedo usarlo sin dominio?**
+Sí, usa la opción de **Tailscale** o accede por IP local, pero ten en cuenta que las extensiones de navegador suelen requerir HTTPS para funcionar correctamente.
 
 ---
-
-## 🛠️ Stack Tecnológico
-
-**Servidor**
-- **Vaultwarden**: Servidor compatible con Bitwarden (Rust)
-- **Docker**: Contenedorización
-
-**Seguridad**
-- **AGE**: Cifrado con claves (identity files)
-- **Cloudflare Tunnel / Tailscale**: Acceso seguro (opcional)
-
-**Backup**
-- **Bitwarden CLI**: Exportación de bóveda
-- **Rclone**: Sincronización con la nube
-- **Telegram Bot API**: Notificaciones
-
----
-
-## 🔒 Seguridad
-
-- ✅ Secretos cifrados con AGE + identity keys
-- ✅ Backups cifrados antes de subir a la nube
-- ✅ Clave privada respaldada en Bitwarden Cloud
-- ✅ Archivos sensibles excluidos de Git
-- ✅ Registro deshabilitado después de crear cuenta
-- ✅ Soporte para 2FA/TOTP
-- ✅ Múltiples opciones de acceso seguro
-
----
-
-## 📚 Documentación
-
-| Documento | Descripción |
-| :--- | :--- |
-| [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki) | Documentación oficial |
-| [AGE Encryption](https://age-encryption.org/) | Cifrado moderno |
-| [Rclone Docs](https://rclone.org/docs/) | Sincronización con nube |
-
----
-
-## ❓ Solución de Problemas Frecuentes
-
-### 1. "Requires HTTPS" / Criptografía falla
-Los navegadores bloquean criptografía en HTTP.
-- **Solución**: Usa Firefox, habilita `chrome://flags/#unsafely-treat-insecure-origin-as-secure` o usa HTTPS (Cloudflare/Tailscale).
-
-### 2. Backup error: "not logged in"
-Revisa `BW_HOST`. Si usas docker local, debe ser `http://localhost:PUERTO`.
-
----
-
-## 🤝 Contribuir
-
-1. Fork del repositorio
-2. `git checkout -b feat/nueva-feature`
-3. `git commit -m "feat: descripción"`
-4. Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
+<p align="center">Creado con ❤️ por <a href="https://github.com/herwingx">herwingx</a></p>
